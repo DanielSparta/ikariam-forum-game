@@ -1,70 +1,157 @@
-<?php
-error_reporting(0);
-ini_set('display_errors', 0);
+<?php 
 session_start();
-// Reset session if the user refreshes the page
-if (!isset($_POST['answer1']) && !isset($_POST['answer2']) && !isset($_POST['player'])) {
+require 'db.php'; // Database connection
+
+global $pdo; // Ensure PDO is globally accessible
+
+// Ensure required tables exist
+function ensureTablesExist(PDO $pdo): void {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(255) NOT NULL UNIQUE,
+            password VARCHAR(255) NOT NULL,
+            token VARCHAR(64) NOT NULL,
+            score INT DEFAULT 0,
+            answered_questions TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS questions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            question TEXT NOT NULL,
+            answer VARCHAR(255) NOT NULL
+        )
+    ");
+}
+
+ensureTablesExist($pdo);
+
+// Fetch scoreboard data
+function fetchScoreboard(PDO $pdo): array {
+    $stmt = $pdo->query("SELECT username, score FROM users ORDER BY score DESC");
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+// Retrieve authenticated user data
+function getAuthenticatedUser(PDO $pdo, ?string $authToken): ?array {
+    if (!$authToken) return null;
+
+    $stmt = $pdo->prepare("SELECT id, score, answered_questions FROM users WHERE token = ?");
+    $stmt->execute([$authToken]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+// Fetch a random unanswered question
+function fetchRandomQuestion(PDO $pdo, array $answeredQuestions): ?array {
+    $query = "SELECT id, question, answer FROM questions";
+    
+    if (!empty($answeredQuestions)) {
+        $placeholders = implode(',', array_fill(0, count($answeredQuestions), '?'));
+        $query .= " WHERE id NOT IN ($placeholders)";
+    }
+
+    $query .= " ORDER BY RAND() LIMIT 1";
+
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($answeredQuestions);
+    
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+// Reset session state if no form submission
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     session_destroy();
     session_start();
-    $_SESSION['stage'] = 'welcome';
+    $_SESSION['stage'] = 'welcome_page';
     $_SESSION['score'] = 0;
 }
 
-// Load or create scoreboard.json
-$scoreboardFile = 'scoreboard.json';
-if (!file_exists($scoreboardFile)) {
-    file_put_contents($scoreboardFile, json_encode([])); // Create file if it doesn't exist
-}
-$scoreboard = json_decode(file_get_contents($scoreboardFile), true) ?? [];
+$authToken = $_COOKIE['auth_token'] ?? null;
+$user = getAuthenticatedUser($pdo, $authToken);
+$isAuthenticated = (bool) $user;
+$_SESSION['score'] = $user['score'] ?? 0;
 
-// Track incorrect answers
-$incorrectMessage = "";
+$scoreboardArray = fetchScoreboard($pdo);
 
-// Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!isset($_SESSION['is_registred'])) {
-        echo "<h1>not exist</h1>";
-    }
-    else{
-    if ($_SESSION['stage'] === 'welcome') {
-        $_SESSION['stage'] = 'question1';
-    } elseif ($_SESSION['stage'] === 'question1' && isset($_POST['answer1'])) {
-        if ($_POST['answer1'] == '10') {
-            $_SESSION['score'] += 10;
-            $_SESSION['stage'] = 'question2';
-        } else {
-            $incorrectMessage = "❌ תשובה שגויה!";
-        }
-    } elseif ($_SESSION['stage'] === 'question2' && isset($_POST['answer2'])) {
-        if (strtolower(trim($_POST['answer2'])) == 'marble') {
-            $_SESSION['score'] += 10;
-            $_SESSION['stage'] = 'final';
-        } else {
-            $incorrectMessage = "❌ תשובה שגויה!";
-        }
-    } elseif ($_SESSION['stage'] === 'final' && isset($_POST['player'])) {
-        $player = htmlspecialchars($_POST['player']);
-
-        // Save player name only (no score)
-        if (!in_array($player, $scoreboard)) {
-            $scoreboard[] = $player;
-            file_put_contents($scoreboardFile, json_encode($scoreboard, JSON_PRETTY_PRINT));
-        }
-
-        session_destroy(); // Reset session
-        header('Location: index.php'); // Reload to show welcome screen again
+    if (!$isAuthenticated) {
+        header('Location: login.php');
         exit;
     }
-}
+
+    $Message = "";
+    switch ($_SESSION['stage']) {
+        case 'start':
+            $_SESSION['stage'] = 'question';
+            $answeredQuestions = json_decode($user['answered_questions'] ?? '[]', true) ?: [];
+            $_SESSION['question'] = fetchRandomQuestion($pdo, $answeredQuestions);
+        
+            // If no more questions are available, move to the final stage
+            if (!$_SESSION['question']) {
+                $_SESSION['stage'] = 'final';
+            }
+            break;
+        
+        case 'question':
+            if (isset($_POST['answer']) && isset($_SESSION['question'])) {
+                $currentQuestion = $_SESSION['question'];
+                $isCorrect = strtolower(trim($_POST['answer'])) === strtolower(trim($currentQuestion['answer']));
+        
+                if ($isCorrect) {
+                    $_SESSION['score'] += 10;
+                    $answeredQuestions = json_decode($user['answered_questions'] ?? '[]', true) ?: [];
+        
+                    if (!in_array($currentQuestion['id'], $answeredQuestions)) {
+                        $answeredQuestions[] = $currentQuestion['id'];
+        
+                        // Update the database
+                        $stmt = $pdo->prepare("UPDATE users SET score = score + 10, answered_questions = ? WHERE token = ?");
+                        $stmt->execute([json_encode($answeredQuestions), $authToken]);
+                    }
+        
+                    $Message = "✅ תשובה נכונה";
+        
+                    // Fetch next question only if the answer was correct
+                    $_SESSION['question'] = fetchRandomQuestion($pdo, $answeredQuestions);
+        
+                    // If no more questions are available, move to the final stage
+                    if (!$_SESSION['question']) {
+                        $_SESSION['stage'] = 'final';
+                    }
+                } else {
+                    $Message = "❌ תשובה שגויה"; // Do not change the question
+                }
+            }
+            break;
+        
+
+        case 'final':
+            if (isset($_POST['player'])) {
+                $stmt = $pdo->prepare("UPDATE users SET score = score + ? WHERE username = ?");
+                $stmt->execute([$_SESSION['score'], htmlspecialchars($_POST['player'])]);
+                session_destroy();
+                header('Location: index.php');
+                exit;
+            }
+            break;
+    }
 }
 ?>
+
+
+
+
+
 
 <!DOCTYPE html>
 <html lang="he">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>חידון איקריאם</title>
+    <title>חדר בריחה צוות חדשות</title>
     <style>
         body {
             background: url('background.png') no-repeat center center fixed;
@@ -145,76 +232,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 20px;
             font-weight: bold;
         }
+        .correct {
+            color: green;
+            font-size: 20px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <?php if ($_SESSION['stage'] === 'welcome'): ?>
-            <h1 dir=rtl>אתגר חדר הבריחה של פורום איקרים ישראל</h1>
-            <p dir=rtl>פתרו כמה שיותר חידות על מנת לצבור כמה שיותר ניקוד!</p>
-            <p dir=rtl>אלו אשר ישלימו את החידות שתתמודדו מולם, יזכו בפרסי אמברוסיה :)</p>
-            <form method="post">
-                <button type="submit">התחל</button>
-            </form>
-            <a href="/">התחבר/הרשם כמשתמש</a>
-
-            <!-- Scoreboard Display -->
-            <?php if (!empty($scoreboard)): ?>
-                <div class="scoreboard">
-                    <h2>🏆 לוח משתתפים 🏆</h2>
-                    <ul>
-                        <?php foreach ($scoreboard as $player): ?>
-                            <li class="player"><?= htmlspecialchars($player) ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
+<img src="https://i.gyazo.com/2d655af08821f93ca232d3e338cae1c0.png">
+    <div dir=rtl class="container">
+        <?php if ($_SESSION['stage'] === 'welcome_page'): ?>
+            <h1>אתגר חדר הבריחה של פורום איקרים ישראל</h1>
+            <p>ברוכים הבאים לאתגר חדר הבריחה של פורום איקרים ישראל</p>
+            <p>אתם תיתקלו במגוון חידות הקשורות למשחק, ועליכם יהיה לפתור אותם, ובכך תשיגו ניקוד.</p>
+            <p>3 השחקנים אשר ישיגו את כמות הניקוד הגבוהה ביותר, יזכו בקופוני אמברוסיה שווים במיוחד :)</p>
+            <?php if ($isAuthenticated): ?>
+                <?php $_SESSION['stage'] = "start"; ?>
+                <form method="post"><button name="login" type="submit">התחל</button></form>
+            <?php else: ?>
+                <form method="post"><button type="submit">הרשם/התחבר</button></form>
             <?php endif; ?>
-
-        <?php elseif ($_SESSION['stage'] === 'question1'): ?>
-            <h1>שאלה 1</h1>
-            <div class="question-box" style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('ikariam_academy.jpg');"
-            >
-            לוחמים אמיצים, הקרב בעיצומו! אויבי העיר צרים על חומותינו, והגנרלים זקוקים בדחיפות למידע קריטי: כמה יחידות מסוגלות לעמוד בעומס הקרב בזכות השריון הכבד שלהן?
-
-המשימה שלכם פשוטה – חפשו היטב בין הדיווחים הצבאיים, פתחו את הספרים האסטרטגיים, או אפילו כנסו אל שדה הקרב בעצמכם. רק מי שמכיר את הכוחות החזקים ביותר של איקריאם יוכל לפתור את החידה ולהתקדם לשלב הבא!
-
-
+        
+        <?php elseif ($_SESSION['stage'] === 'question' && isset($_SESSION['question'])): ?>
+            <h1>חידה</h1>
+            <div class="question-box">
+                <?= htmlspecialchars($_SESSION['question']['question']) ?>
             </div>
             <form method="post">
-                <input type="number" name="answer1" placeholder="הכנס מספר" required>
+                <input type="text" name="answer" required>
                 <button type="submit">בדוק</button>
             </form>
-            <?php if ($incorrectMessage): ?>
-                <p class="error"><?= $incorrectMessage ?></p>
+            <?php if (!empty($Message)): ?>
+                <p class="<?= str_starts_with($Message, '✅') ? 'correct' : 'error' ?>"> <?= $Message ?> </p>
             <?php endif; ?>
-
-        <?php elseif ($_SESSION['stage'] === 'question2'): ?>
-            <h1>שאלה 2</h1>
-            <div class="question-box" style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('ikariam_tavern.jpg');">
-                איזה משאב משמש לבניית פסלים באקרופוליס?
-            </div>
-            <form method="post">
-                <input type="text" name="answer2" placeholder="הכנס שם המשאב" required>
-                <button type="submit">בדוק</button>
-            </form>
-            <?php if ($incorrectMessage): ?>
-                <p class="error"><?= $incorrectMessage ?></p>
-            <?php endif; ?>
-
+        
         <?php elseif ($_SESSION['stage'] === 'final'): ?>
-            <h1 dir=rtl>כל הכבוד!</h1>
+            <?php $_SESSION['stage'] = "welcome_page"; ?>
+            <h1>הודעת מערכת</h1>
+            <p>נראה כאילו ענית על כל השאלות במאגר :) מדי פעם מתעדכנים עוד שאלות, וכך תוכל להמשיך להתקדם בניקוד.</p>
             <p>הניקוד שלך: <?= $_SESSION['score'] ?></p>
-            <div class="question-box" style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('ikariam_treasure.jpg');">
-                הזן את שמך כדי להופיע בלוח הניקוד
-            </div>
-            <form method="post">
-                <input type="text" name="player" placeholder="שם שחקן" required>
-                <button type="submit">שלח</button>
+            <form method="POST">
+                <button type="submit">חזור למסך הבית</button>
             </form>
+        <?php endif; ?>
 
-        <?php else: ?>
-            <h1>שגיאה</h1>
+        <?php if (!empty($scoreboardArray)): ?> 
+            <div class="scoreboard">
+                <h2>🏆 לוח משתתפים 🏆</h2>
+                <ul>
+                    <?php foreach ($scoreboardArray as $player): ?>
+                        <li class="player"><?= htmlspecialchars($player['username']) ?> - <?= htmlspecialchars($player['score']) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
         <?php endif; ?>
     </div>
 </body>
+
 </html>
