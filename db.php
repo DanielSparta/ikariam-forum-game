@@ -1,8 +1,8 @@
 <?php
 $host = 'localhost';
-$dbname = 'ikariam_quiz'; // Your database name
-$username = 'root'; // Default username for XAMPP MySQL
-$password = ''; // Default password for XAMPP MySQL (empty)
+$dbname = 'ikariam_quiz';
+$username = 'ubuntu';
+$password = '';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);

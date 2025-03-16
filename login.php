@@ -8,7 +8,7 @@ class Database {
     private mysqli $conn;
 
     public function __construct() {
-        $this->conn = new mysqli("localhost", "root", "", "ikariam_quiz");
+        $this->conn = new mysqli("localhost", "ubuntu", "", "ikariam_quiz");
 
         if ($this->conn->connect_error) {
             die("Database connection failed: " . $this->conn->connect_error);
@@ -74,6 +74,32 @@ function validateCsrfToken(string $token): bool {
 }
 
 /**
+ * Check for IPv4 address
+ */
+function isIpv4(): bool {
+    return filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4);
+}
+
+/**
+ * Rate Limiting for 10 seconds between requests
+ */
+function isRequestAllowed(): bool {
+    // If there's no previous request timestamp, allow the request
+    if (!isset($_SESSION['last_request_time'])) {
+        $_SESSION['last_request_time'] = time();
+        return true;
+    }
+
+    // Check if 10 seconds have passed since the last request
+    if (time() - $_SESSION['last_request_time'] >= 10) {
+        $_SESSION['last_request_time'] = time();
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * Handle Login/Register Requests
  */
 $error = '';
@@ -82,6 +108,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
     if (!validateCsrfToken($_POST['csrf_token'])) {
         $error = "❌ שגיאה: CSRF Token לא תקין.";
         logAction($mysqli, "CSRF token validation failed.", "error");
+    } elseif (!isIpv4()) {
+        $error = "❌ שגיאה: רק כתובת IPv4 מורשית להתחבר.";
+        logAction($mysqli, "Non-IPv4 request attempted.", "error");
+    } elseif (!isRequestAllowed()) {
+        $error = "❌ שגיאה: יש להמתין 10 שניות בין כל ניסיון.";
+        logAction($mysqli, "Login Request rate limit exceeded for: {$username}.", "info", null, $_SERVER['REMOTE_ADDR']);
     } else {
         $username = trim($_POST['username']);
         $password = $_POST['password'];
@@ -102,9 +134,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                     $stmt->bind_result($userId, $fetchedUsername, $hashedPassword); // Bind the username as well
                     $stmt->fetch();
 
-                    // Debugging: Output values of userId and fetchedUsername
-                    var_dump($userId, $fetchedUsername, $hashedPassword); // Check what you get here
-
                     if (password_verify($password, $hashedPassword)) {
                         $newToken = bin2hex(random_bytes(32));
 
@@ -117,7 +146,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                         $_SESSION['is_registred'] = true;
                         $_SESSION['username'] = $fetchedUsername;
 
-                        // Ensure correct values are logged
                         logAction($mysqli, "User logged in.", "info", $userId, $fetchedUsername);
 
                         header("Location: login.php");
@@ -160,6 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
 
 $mysqli->close();
 ?>
+
 
 
 <!DOCTYPE html>
