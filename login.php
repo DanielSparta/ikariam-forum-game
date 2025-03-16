@@ -1,162 +1,191 @@
 <?php
 session_start();
 
-// Database Connection
-$mysqli = new mysqli("localhost", "root", "", "ikariam_quiz");
+/**
+ * Database Configuration
+ */
+class Database {
+    private mysqli $conn;
 
-if ($mysqli->connect_error) {
-    die("Connection failed: " . $mysqli->connect_error);
-}
+    public function __construct() {
+        $this->conn = new mysqli("localhost", "ubuntu", "", "ikariam_quiz");
 
-// Check if 'logs' table exists, if not create it
-$table_check = $mysqli->query("SHOW TABLES LIKE 'logs'");
-if ($table_check->num_rows == 0) {
-    // Create 'logs' table
-    $create_table = "
-        CREATE TABLE logs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            error_message TEXT NULL,
-            error_type VARCHAR(50) NULL,
-            user_ip VARCHAR(255) NOT NULL,
-            user_agent TEXT NOT NULL,
-            user_id INT NULL,
-            username VARCHAR(255) NULL,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    ";
-    if (!$mysqli->query($create_table)) {
-        die("Error creating logs table: " . $mysqli->error);
+        if ($this->conn->connect_error) {
+            die("Database connection failed: " . $this->conn->connect_error);
+        }
+
+        $this->initializeTables();
+    }
+
+    private function initializeTables(): void {
+        $this->conn->query("
+            CREATE TABLE IF NOT EXISTS logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                error_message TEXT NULL,
+                error_type VARCHAR(50) NULL,
+                user_ip VARCHAR(255) NOT NULL,
+                user_agent TEXT NOT NULL,
+                user_id INT NULL,
+                username VARCHAR(255) NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+    }
+
+    public function getConnection(): mysqli {
+        return $this->conn;
     }
 }
 
-// Function to log errors and actions into the 'logs' table
-function logAction($mysqli, $error_message, $error_type, $user_id = null, $username = null) {
-    $user_ip = $_SERVER['REMOTE_ADDR'];
-    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+$db = new Database();
+$mysqli = $db->getConnection();
 
-    // Insert the log into the 'logs' table
-    $stmt = $mysqli->prepare("INSERT INTO logs (error_message, error_type, user_ip, user_agent, user_id, username) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssss", $error_message, $error_type, $user_ip, $user_agent, $user_id, $username);
+/**
+ * Logging Utility
+ */
+function logAction(mysqli $db, string $message, string $type, ?int $user_id = null, ?string $username = null): void {
+    $stmt = $db->prepare("
+        INSERT INTO logs (error_message, error_type, user_ip, user_agent, user_id, username)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ");
+    $user_ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'UNKNOWN';
 
-    if (!$stmt->execute()) {
-        // In case the insert fails, we can log the failure as well
-        error_log("Failed to log action: " . $stmt->error);
-    }
-
-    $stmt->close();
-}
-
-// Generate CSRF Token if not set (in session)
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Secure random token
-}
-
-// Validate CSRF Token
-function validateCsrfToken($token) {
-    if (!isset($token) || !is_string($token) || $token !== $_SESSION['csrf_token']) {
-        logAction($GLOBALS['mysqli'], "CSRF token validation failed.", "error");
-        return false;
-    }
-    return true;
-}
-
-// Authenticate user via cookie (check if already connected)
-if (isset($_COOKIE['auth_token'])) {
-    // Check if the token is valid in the database
-    $stmt = $mysqli->prepare("SELECT id, username FROM users WHERE token = ?");
-    $stmt->bind_param("s", $_COOKIE['auth_token']);
+    $stmt->bind_param("sssssi", $message, $type, $user_ip, $user_agent, $user_id, $username);
     $stmt->execute();
-    $stmt->store_result();
-
-    if ($stmt->num_rows > 0) {
-        $stmt->bind_result($userId, $username);
-        $stmt->fetch();
-
-        // User is already logged in, no need to process login again
-        $_SESSION['is_registred'] = true;
-        $_SESSION['username'] = $username;
-
-        // Log the action
-        logAction($mysqli, "User already logged in with valid token.", "info", $userId, $username);
-    } else {
-        // Invalid token, log the failed attempt
-        logAction($mysqli, "Invalid auth_token attempted.", "error", null, null);
-    }
-
     $stmt->close();
 }
 
-// Handle login/register
-$error = ''; // Initialize error message variable
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['password'], $_POST['csrf_token'])) {
-    // Validate CSRF token
-    if (!validateCsrfToken($_POST['csrf_token'])) {
-        $error = "❌ שגיאה: csrf token לא תואם, אנא נסה שוב. ❌";
-        logAction($mysqli, "Attempted request without a valid CSRF token.", "error", null, null);
+/**
+ * CSRF Token Management
+ */
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+function validateCsrfToken(string $token): bool {
+    return isset($token) && $token === $_SESSION['csrf_token'];
+}
+
+/**
+ * User Authentication
+ */
+function getAuthenticatedUser(mysqli $db, ?string $authToken): ?array {
+    if (!$authToken) {
+        return null;
+    }
+
+    $stmt = $db->prepare("SELECT id, username, score FROM users WHERE token = ?");
+    $stmt->bind_param("s", $authToken);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    $stmt->close();
+
+    return $user ?: null;
+}
+
+// Fetch scoreboard data (Fixed for MySQLi)
+function fetchScoreboard(mysqli $db): array {
+    $stmt = $db->query("SELECT username, score, user_note FROM users ORDER BY score DESC");
+    return $stmt ? $stmt->fetch_all(MYSQLI_ASSOC) : [];
+}
+
+$authToken = $_COOKIE['auth_token'] ?? null;
+$user = getAuthenticatedUser($mysqli, $authToken);
+$isAuthenticated = (bool) $user;
+$scoreboardArray = fetchScoreboard($mysqli);
+
+if ($isAuthenticated) {
+    $_SESSION['is_registred'] = true;
+    $_SESSION['username'] = $user['username'];
+    logAction($mysqli, "User authenticated via token.", "info", $user['id'], $user['username']);
+}
+
+/**
+ * Handle Login/Register Requests
+ */
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['password'], $_POST['csrf_token'])) { 
+    if (!isset($_POST['csrf_token']) || !is_string($_POST['csrf_token']) || !validateCsrfToken($_POST['csrf_token'])) {
+        $error = "❌ שגיאה: CSRF Token לא תקין.";
+        logAction($mysqli, "CSRF token validation failed.", "error");
     } else {
-        // CSRF token is valid, process login/register
-        $username = $_POST['username'];
+        $username = trim($_POST['username']);
         $password = $_POST['password'];
 
-        if (!empty($username) && !empty($password)) {
-            if (!is_array($username) && !is_array($password)) {
+        if (!empty($username) && !empty($password) && is_string($username) && is_string($password)) {
+            if (strlen($username) > 20) {
+                $error = "❌ שגיאה: שם המשתמש לא יכול להיות ארוך מ-20 תווים.";
+                logAction($mysqli, "Username too long: {$username}.", "error");
+            }
+            elseif (stripos(trim($username), "﷽") !== false)
+            {
+                $error = "❌ התו שאתה מנסה להשתמש בו נחסם";
+            }
+            else {
                 $stmt = $mysqli->prepare("SELECT id, password FROM users WHERE username = ?");
                 $stmt->bind_param("s", $username);
                 $stmt->execute();
-                $stmt->store_result();
-
+                $stmt->store_result();        
                 if ($stmt->num_rows > 0) { // User exists, validate password
                     $stmt->bind_result($userId, $hashedPassword);
                     $stmt->fetch();
-                    if (password_verify($password, $hashedPassword)) {
-                        $token = bin2hex(random_bytes(32)); // Generate a new token
-                        $stmt = $mysqli->prepare("UPDATE users SET token = ? WHERE id = ?");
-                        $stmt->bind_param("si", $token, $userId);
-                        $stmt->execute();
 
-                        // Set session and token cookie
+                    if (password_verify($password, $hashedPassword)) {
+                        $newToken = bin2hex(random_bytes(32));
+
+                        $updateStmt = $mysqli->prepare("UPDATE users SET token = ? WHERE id = ?");
+                        $updateStmt->bind_param("si", $newToken, $userId);
+                        $updateStmt->execute();
+                        $updateStmt->close();
+
+                        setcookie("auth_token", $newToken, time() + (86400 * 30), "/", "", false, true);
                         $_SESSION['is_registred'] = true;
                         $_SESSION['username'] = $username;
-                        setcookie("auth_token", $token, time() + (86400 * 30), "/", "", false, true);
-                        // Log the successful login
-                        logAction($mysqli, "User logged in successfully.", "info", $userId, $username);
+
+                        logAction($mysqli, "User logged in.", "info", $userId, $username);
                         header("Location: login.php");
                         exit;
                     } else {
-                        // Incorrect password, log the failed attempt
-                        $error = "הססמא עבור המשתמש " . $username . " שגויה.";
-                        logAction($mysqli, "Incorrect password for user: " . $username, "error", null, $username);
+                        $error = "❌ שגיאה: סיסמה שגויה.";
+                        logAction($mysqli, "Incorrect password attempt for {$username}.", "error");
                     }
                 } else { // Register new user
                     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                    $token = bin2hex(random_bytes(32)); // Generate a new token
-                    $stmt = $mysqli->prepare("INSERT INTO users (username, password, token) VALUES (?, ?, ?)");
-                    $stmt->bind_param("sss", $username, $hashedPassword, $token);
-                    if (!$stmt->execute()) {
-                        $error = "שם משתמש כבר קיים";
-                        logAction($mysqli, "Username already exists: " . $username, "error", null, $username);
+                    $token = bin2hex(random_bytes(32));
+
+                    $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, token) VALUES (?, ?, ?)");
+                    $insertStmt->bind_param("sss", $username, $hashedPassword, $token);
+
+                    if ($insertStmt->execute()) {
+                        logAction($mysqli, "New user registered: {$username}.", "info");
+                        $_SESSION['is_registred'] = true;
+                        $_SESSION['username'] = $username;
+                        setcookie("auth_token", $token, time() + (86400 * 30), "/", "", false, true);
+                        header("Location: login.php");
+                        exit;
+                    } else {
+                        $error = "❌ שגיאה: שם המשתמש כבר קיים.";
+                        logAction($mysqli, "Failed registration attempt: {$username}.", "error");
                     }
-                    else{
-                        logAction($mysqli, "User created: " . $username, "info", null, $username);
-                        header('Location: login.php');
-                    }
+
+                    $insertStmt->close();
                 }
-            } else {
-                $error = "עלייך להכניס מידע כמחרוזת.";
-                logAction($mysqli, "Invalid input, non-string data received.", "error", null, null);
+
+                $stmt->close();
             }
         } else {
-            $error = "עלייך להזין מידע משתמש בשדה שם המשתמש ובססמא.";
-            logAction($mysqli, "Missing username or password.", "error", null, null);
+            $error = "❌ שגיאה: נא להזין שם משתמש וסיסמה תקפים.";
+            logAction($mysqli, "Invalid input format.", "error");
         }
     }
 }
 
+
 $mysqli->close();
 ?>
-
-
-
 <!DOCTYPE html>
 <html lang="he">
 <head>
@@ -166,182 +195,205 @@ $mysqli->close();
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;700&display=swap" rel="stylesheet">
     <style>
-        /* General Styles */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
+        /* Reset Box-sizing and Margin/Padding */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-body {
-    background: url('/background.png') no-repeat center center fixed;
-    background-size: cover;
-    font-family: 'Heebo', sans-serif;
-    text-align: center;
-    color: #fff;
-    margin: 0;
-    padding: 0;
-}
+        /* Fade-in Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-/* Default Style for Computers */
-.container {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90%;
-    max-width: 600px;
-    background: rgba(0, 0, 0, 0.85);
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(10px);
-}
+        /* Body Styling */
+        body {
+            background: url('/background.png') no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Heebo', sans-serif;
+            text-align: center;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            animation: fadeIn 1s ease-in-out;
+        }
 
-h1 {
-    font-size: 30px;
-    margin-bottom: 15px;
-    font-weight: 700;
-}
+        /* Container Styling */
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(15px);
+            margin: 15px;
+            animation: fadeIn 1s ease-in-out;
+        }
 
-.question-box {
-    background: rgba(255, 255, 255, 0.1);
-    padding: 25px;
-    border-radius: 10px;
-    margin-bottom: 15px;
-    font-weight: bold;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
-}
+        /* Title Styling */
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            font-weight: 700;
+            text-shadow: 2px 2px 5px rgba(255, 255, 255, 0.2);
+        }
 
-input, button {
-    width: 85%;
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 6px;
-    border: none;
-    font-size: 16px;
-}
+        .loggedIn {
+            color: #27ae60;
+            font-size: 30px;
+            font-weight: bold;
+        }
 
-input {
-    background: #fff;
-    color: #000;
-    text-align: center;
-    font-weight: bold;
-}
+        /* Question Box Styling */
+        .question-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        }
 
-button {
-    background: linear-gradient(45deg, #ff9800, #ff5722);
-    color: #fff;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.3s ease-in-out;
-    box-shadow: 0 4px 10px rgba(255, 152, 0, 0.5);
-}
+        /* Input and Button Styling */
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: none;
+            font-size: 1rem;
+            transition: 0.3s ease-in-out;
+        }
 
-button:hover {
-    transform: scale(1.05);
-    background: linear-gradient(45deg, #e68900, #e64a19);
-}
+        input {
+            background: #fff;
+            color: #000;
+            text-align: center;
+            font-weight: bold;
+            outline: none;
+        }
 
-.scoreboard {
-    margin-top: 20px;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 15px;
-    border-radius: 10px;
-}
+        input:focus {
+            box-shadow: 0 0 10px rgba(255, 152, 0, 0.7);
+        }
 
-.scoreboard h2 {
-    font-size: 24px;
-    color: #f4a100;
-    font-weight: bold;
-}
+        button {
+            background: linear-gradient(45deg, #ff9800, #ff5722);
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(255, 152, 0, 0.5);
+            transition: 0.3s ease-in-out;
+            position: relative;
+            overflow: hidden;
+        }
 
-.scoreboard ul {
-    list-style: none;
-    padding: 0;
-}
+        button::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: 0.3s ease-in-out;
+        }
 
-.player {
-    font-size: 18px;
-    font-weight: bold;
-}
+        button:hover {
+            transform: scale(1.05);
+            background: linear-gradient(45deg, #e68900, #e64a19);
+        }
 
-.error {
-    color: #ff4d4d;
-    font-size: 20px;
-    font-weight: bold;
-}
+        button:hover::before {
+            left: 100%;
+        }
 
-.correct {
-    color: #27ae60;
-    font-size: 20px;
-    font-weight: bold;
-}
+        /* Scoreboard Styling */
+        .scoreboard {
+            margin-top: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            animation: fadeIn 1.2s ease-in-out;
+        }
 
-/* Mobile Styles */
-@media (max-width: 768px) {
-    body {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        padding: 15px;
-    }
+        .scoreboard h2 {
+            font-size: 1.5rem;
+            color: #f4a100;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 165, 0, 0.7);
+        }
 
-    .container {
-        width: 90%;
-        max-width: 600px;
-        padding: 20px;
-    }
+        .scoreboard ul {
+            list-style: none;
+            padding: 0;
+        }
 
-    h1 {
-        font-size: 6vw;
-    }
+        .player {
+            font-size: 1rem;
+            font-weight: bold;
+            transition: transform 0.3s ease-in-out;
+        }
 
-    .question-box {
-        font-size: 5vw;
-        padding: 15px;
-    }
+        .player:hover {
+            transform: scale(1.1);
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+        }
 
-    .scoreboard h2 {
-        font-size: 5vw;
-    }
+        /* Error and Correct Messages Styling */
+        .error {
+            color: #ff4d4d;
+            font-size: 1.25rem;
+            font-weight: bold;
+            animation: fadeIn 1s ease-in-out;
+        }
 
-    .player {
-        font-size: 4vw;
-    }
+        .correct {
+            color: #27ae60;
+            font-size: 1.25rem;
+            font-weight: bold;
+            animation: fadeIn 1s ease-in-out;
+        }
 
-    input, button {
-        width: 100%;
-        font-size: 16px;
-    }
-}
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 5vw;
+            }
 
-@media (max-width: 480px) {
-    h1 {
-        font-size: 7vw;
-    }
+            input, button {
+                font-size: 1rem;
+            }
 
-    .question-box {
-        font-size: 6vw;
-    }
+            .container {
+                padding: 20px;
+            }
+        }
 
-    .scoreboard h2 {
-        font-size: 6vw;
-    }
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 7vw;
+            }
 
-    .player {
-        font-size: 5vw;
-    }
+            button {
+                font-size: 1rem;
+                padding: 12px;
+            }
 
-    button {
-        font-size: 16px;
-        padding: 10px;
-    }
-}
-
+            input {
+                font-size: 1rem;
+                padding: 12px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -353,42 +405,90 @@ button:hover {
             <p dir="rtl">הכניסו שם משתמש וססמא כדי להירשם או להתחבר.</p>
             <p dir="rtl">דף זה משתמש כדף התחברות וכדף הרשמה, זאת אומרת שאם תרשמו משתמש שלא קיים, אתם תרשמו איתו לאתר. במידה ותרשמו משתמש קיים, אתם תתחברו איתו.</p>
             <p dir="rtl">מטרת ההתחברות היא על מנת שתוכלו לגשת למשתמש שלכם לאורך זמן ולהמשיך להתקדם בניקוד. בעת יצירת המשתמש, אל תשתמשו בפרטי החשבון האמיתיים של המשתמש איקרים שלכם</p>
-            
+            <br>
             <form method="POST" action="login.php">
                 <input type="text" name="username" placeholder="כינוי שיוצג בטבלת הניקוד" required>
                 <input type="password" name="password" placeholder="ססמא איתה תתחברו לאתר הזה" required>
-                <!-- CSRF Token -->
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <button name="login" type="submit">התחבר/הרשם</button>
             </form>
-
             <?php if (!empty($error)): ?>
                 <p class="error"><?= htmlspecialchars($error) ?></p>
             <?php endif; ?>
-
         <?php else: ?>
-            <h1 dir="rtl"><?= htmlspecialchars($_SESSION['username']) ?>, נראה שאתה מחובר.</h1>
-            <p dir="rtl">אתה מחובר ועל כן אתה יכול להתחיל להשתתף בחדר בריחה.</p>
-            
+            <h1 class="loggedIn" dir="rtl"><?= htmlspecialchars($_SESSION['username']) ?>, נראה שאתה מחובר.</h1>
             <form method="POST" action="index.php">
-                <!-- CSRF Token for starting the escape room -->
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <button type="submit">התחל בחדר בריחה</button>
             </form>
         <?php endif; ?>
-        
-        <!-- Scoreboard Display -->
+
         <?php if (!empty($scoreboardArray)): ?> 
-            <div class="scoreboard">
-                <h2>🏆 לוח משתתפים 🏆</h2>
-                <ul>
-                    <?php foreach ($scoreboardArray as $player): ?>
-                        <li class="player"><?= htmlspecialchars($player['username']) ?> - <?= htmlspecialchars($player['score']) ?></li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-        <?php endif; ?>
+    <style>
+        /* Gold Shine Animation */
+        @keyframes shine {
+            0% { color: #ffd700; text-shadow: 0 0 5px #ffcc00, 0 0 10px #ffcc00; }
+            50% { color: #fff4b2; text-shadow: 0 0 10px #ffcc00, 0 0 20px #ffcc00; }
+            100% { color: #ffd700; text-shadow: 0 0 5px #ffcc00, 0 0 10px #ffcc00; }
+        }
+
+        /* Sliding Comment Animation */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .gold-shine {
+            color: #ffd700 !important;
+            font-weight: bold;
+            text-shadow: 0 0 5px #ffcc00, 0 0 10px #ffcc00;
+            animation: shine 1.5s infinite alternate;
+        }
+
+        /* Style for each player entry */
+        .player {
+            margin-bottom: 6px; /* Added spacing between users */
+        }
+
+        /* Comment Style - Small Space & Fades in */
+        .user-note {
+            font-style: italic;
+            color: #888;
+            font-size: 0.85em;
+            margin-top: -3px; /* Super small space */
+            opacity: 0.9;
+            animation: slideIn 0.5s ease-in-out;
+        }
+    </style>
+
+    <?php 
+        $currentUsername = isset($user['username']) ? $user['username'] : null; 
+    ?>
+
+    <div class="scoreboard">
+        <h2>🏆 לוח משתתפים 🏆</h2>
+        <ul style="list-style: none; padding: 0;">
+            <?php foreach ($scoreboardArray as $index => $player): ?>
+                <?php 
+                    $isCurrentUser = (isset($currentUsername) && trim($player['username']) === trim($currentUsername));
+                ?>
+                <li class="player">
+                    <!-- Username & Score -->
+                    <span class="nickname <?= $isCurrentUser ? 'gold-shine' : '' ?>">
+                        <?= htmlspecialchars($player['username']) ?> - <?= (int)$player['score'] ?>
+                    </span>
+
+                    <!-- User Comment (Minimal Space, Styled Like a Comment) -->
+                    <?php if (!empty($player['user_note'])): ?>
+                        <div class="user-note">
+                            <?= htmlspecialchars($player['user_note']) ?>
+                        </div>
+                    <?php endif; ?>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+<?php endif; ?>
     </div>
 </body>
-
 </html>
