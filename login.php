@@ -18,20 +18,17 @@ class Database {
     }
 
     private function initializeTables(): void {
-        $this->conn->query("
-            CREATE TABLE IF NOT EXISTS users (
+        $this->conn->query("CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 username VARCHAR(255) NOT NULL UNIQUE,
                 password VARCHAR(255) NOT NULL,
                 token VARCHAR(64) NOT NULL,
                 score INT DEFAULT 0,
-                answered_questions JSON DEFAULT NULL, -- Ensure it's JSON-compatible
+                answered_questions JSON DEFAULT NULL, 
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ");
+            )");
 
-        $this->conn->query("
-            CREATE TABLE IF NOT EXISTS logs (
+        $this->conn->query("CREATE TABLE IF NOT EXISTS logs (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 error_message TEXT NULL,
                 error_type VARCHAR(50) NULL,
@@ -40,8 +37,7 @@ class Database {
                 user_id INT NULL,
                 username VARCHAR(255) NULL,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ");
+            )");
     }
 
     public function getConnection(): mysqli {
@@ -56,10 +52,8 @@ $mysqli = $db->getConnection();
  * Logging Utility
  */
 function logAction(mysqli $db, string $message, string $type, ?int $user_id = null, ?string $username = null): void {
-    $stmt = $db->prepare("
-        INSERT INTO logs (error_message, error_type, user_ip, user_agent, user_id, username)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ");
+    $stmt = $db->prepare("INSERT INTO logs (error_message, error_type, user_ip, user_agent, user_id, username)
+                          VALUES (?, ?, ?, ?, ?, ?)");
     $user_ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'UNKNOWN';
 
@@ -96,18 +90,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
             if (strlen($username) > 20) {
                 $error = "❌ שגיאה: שם המשתמש לא יכול להיות ארוך מ-20 תווים.";
                 logAction($mysqli, "Username too long: {$username}.", "error");
-            }
-            elseif (stripos(trim($username), "﷽") !== false) {
+            } elseif (stripos(trim($username), "﷽") !== false) {
                 $error = "❌ התו שאתה מנסה להשתמש בו נחסם";
             } else {
-                $stmt = $mysqli->prepare("SELECT id, password FROM users WHERE username = ?");
+                $stmt = $mysqli->prepare("SELECT id, username, password FROM users WHERE username = ?");
                 $stmt->bind_param("s", $username);
                 $stmt->execute();
                 $stmt->store_result();
 
                 if ($stmt->num_rows > 0) { // User exists, validate password
-                    $stmt->bind_result($userId, $hashedPassword);
+                    $stmt->bind_result($userId, $fetchedUsername, $hashedPassword); // Bind the username as well
                     $stmt->fetch();
+
+                    // Debugging: Output values of userId and fetchedUsername
+                    var_dump($userId, $fetchedUsername, $hashedPassword); // Check what you get here
 
                     if (password_verify($password, $hashedPassword)) {
                         $newToken = bin2hex(random_bytes(32));
@@ -119,14 +115,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
 
                         setcookie("auth_token", $newToken, time() + (86400 * 30), "/", "", false, true);
                         $_SESSION['is_registred'] = true;
-                        $_SESSION['username'] = $username;
+                        $_SESSION['username'] = $fetchedUsername;
 
-                        logAction($mysqli, "User logged in.", "info", $userId, $username);
+                        // Ensure correct values are logged
+                        logAction($mysqli, "User logged in.", "info", $userId, $fetchedUsername);
+
                         header("Location: login.php");
                         exit;
                     } else {
                         $error = "❌ שגיאה: סיסמה שגויה.";
-                        logAction($mysqli, "Incorrect password attempt for {$username}.", "error");
+                        logAction($mysqli, "Incorrect password attempt for {$username}.", "error", null, $_SERVER['REMOTE_ADDR']);
                     }
                 } else { // Register new user
                     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
@@ -162,6 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
 
 $mysqli->close();
 ?>
+
 
 <!DOCTYPE html>
 <html lang="he">

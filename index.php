@@ -15,34 +15,48 @@ function verifyCsrfToken(string $csrfToken): bool {
 function ensureTablesExist(PDO $pdo): void {
     $queries = [
         "CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(255) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            user_note VARCHAR(255) NOT NULL,
-            token VARCHAR(64) NOT NULL,
-            score INT DEFAULT 0,
-            answered_questions TEXT, -- Removed DEFAULT ''
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )",
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    user_note VARCHAR(255) NOT NULL,
+    token VARCHAR(64) NOT NULL,
+    score INT DEFAULT 0,
+    answered_questions TEXT, 
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_admin TINYINT(1) DEFAULT 0 
+);",
         "CREATE TABLE IF NOT EXISTS questions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             question TEXT NOT NULL,
             answer VARCHAR(255) NOT NULL
         )",
         "CREATE TABLE IF NOT EXISTS logs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            error_message TEXT NULL,
-            error_type VARCHAR(50) NULL,
-            user_ip VARCHAR(255) NOT NULL,
-            user_agent TEXT NOT NULL,
-            user_id INT NULL,
-            username VARCHAR(255) NULL,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )"
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                error_message TEXT NULL,
+                error_type VARCHAR(50) NULL,
+                user_ip VARCHAR(255) NOT NULL,
+                user_agent TEXT NOT NULL,
+                user_id INT NULL,
+                username VARCHAR(255) NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )"
     ];
-    
+
     foreach ($queries as $query) {
         $pdo->exec($query);
+    }
+
+    // Check if the 'DanielSparta' user exists, if not, create it
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
+    $stmt->execute(['DanielSparta']);
+    $userCount = $stmt->fetchColumn();
+
+    if ($userCount == 0) {
+        // Insert the default admin user 'DanielSparta'
+        $adminPassword = '$2y$10$CCdYXEDGO2SFuT7OGe6j9uF8.VuAzJU2CCd1nJoAQOqt89Sj5BmA2'; // The hashed password
+        $adminToken = bin2hex(random_bytes(32)); // Generate a unique token for the user
+        $stmt = $pdo->prepare("INSERT INTO users (username, password, token, is_admin, user_note) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute(['DanielSparta', $adminPassword, $adminToken, 1, 'Admin account created']);
     }
 }
 ensureTablesExist($pdo);
@@ -64,6 +78,7 @@ function logAction(PDO $pdo, string $message, string $type, ?int $user_id = null
 // Custom error handler
 function customErrorHandler($level, $message, $file, $line) {
     global $pdo, $user;
+    $user = $user ?? ['id' => null, 'username' => null];  // Default empty user data
     $errorType = match ($level) {
         E_ERROR => 'Fatal Error',
         E_WARNING => 'Warning',
@@ -94,10 +109,10 @@ function fetchScoreboard(PDO $pdo): array {
 // Retrieve authenticated user data
 function getAuthenticatedUser(PDO $pdo, ?string $authToken): ?array {
     if (!$authToken) return null;
-    $stmt = $pdo->prepare("SELECT id, username, score, answered_questions FROM users WHERE token = ?");
+    $stmt = $pdo->prepare("SELECT id, username, score, answered_questions, is_admin FROM users WHERE token = ?");
     $stmt->execute([$authToken]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $user ?: null; // Ensure `false` is converted to `null`
+    return $user ?: null;
 }
 
 // Fetch a random unanswered question
@@ -120,12 +135,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     $_SESSION['score'] = 0;
 }
 
+// Add CSRF token to session if not set
+$csrf_token = generateCsrfToken();
+
+// Ensure user is authenticated
 $authToken = $_COOKIE['auth_token'] ?? null;
 $user = getAuthenticatedUser($pdo, $authToken);
 $isAuthenticated = (bool) $user;
 $_SESSION['score'] = $user['score'] ?? 0;
+$_SESSION['username'] = $user['username'];
 $scoreboardArray = fetchScoreboard($pdo);
 
+// CSRF Token Error
 $csrf_error = "";
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
@@ -142,6 +163,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $answeredQuestions = json_decode($user['answered_questions'] ?? '[]', true) ?: [];
         $Message = "";
 
+        if (isset($_POST['admin_panel']) && $user['is_admin']) {
+            $_SESSION['stage'] = 'admin_panel';
+        }
+
         if (isset($_POST['settings']))
             $_SESSION['stage'] = "settings";
         if (isset($_POST['set_homepage']))
@@ -153,9 +178,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $Message = "❌ הערה ארוכה מדי (מקסימום 25 תווים)";
             } else {
                 $stmt = $pdo->prepare("UPDATE users SET user_note = ? WHERE username = ?");
-                $stmt->execute([htmlspecialchars($userNote), $user['username']]);
+                // Ensure $userNote is never null
+                $stmt->execute([htmlspecialchars($userNote ?: ''), $user['username']]);
                 $Message = "✅ ההערה עודכנה בהצלחה";
+                logAction($pdo, "User note updated", 'info', $user['id'], $user['username']);
+                
             }
+
         }
 
         switch ($_SESSION['stage']) {
@@ -189,16 +218,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 break;
 
-            case 'final':
-                $_SESSION['stage'] = 'finish';
-                break;
+            case 'admin_panel':
+                logAction($pdo, "Admin panel enter", 'info', $user['id'], $user['username']);
+                $stmt = $pdo->query("SELECT id, question, answer FROM questions");
+                $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Delete question
+                if (isset($_POST['delete_question'], $_POST['question_id'])) {
+                    $questionId = (int)$_POST['question_id'];
+                    $stmt = $pdo->prepare("DELETE FROM questions WHERE id = ?");
+                    $stmt->execute([$questionId]);
+                    $Message = "✅ השאלה נמחקה בהצלחה.";
+                }
 
-            case 'settings':
+                // Add new question
+                if (isset($_POST['add_question'], $_POST['new_question'], $_POST['new_answer'])) {
+                    $newQuestion = trim($_POST['new_question']);
+                    $newAnswer = trim($_POST['new_answer']);
+
+                    if (strlen($newQuestion) > 0 && strlen($newAnswer) > 0) {
+                        $stmt = $pdo->prepare("INSERT INTO questions (question, answer) VALUES (?, ?)");
+                        $stmt->execute([$newQuestion, $newAnswer]);
+                        $Message = "✅ השאלה נוספה בהצלחה.";
+                    } else {
+                        $Message = "❌ אנא ספק שאלה וגם תשובה.";
+                    }
+                }
+
+                // Edit existing question
+                if (isset($_POST['edit_question'], $_POST['question_id'], $_POST['updated_question'], $_POST['updated_answer'])) {
+                    $questionId = (int)$_POST['question_id'];
+                    $updatedQuestion = trim($_POST['updated_question']);
+                    $updatedAnswer = trim($_POST['updated_answer']);
+
+                    if (strlen($updatedQuestion) > 0 && strlen($updatedAnswer) > 0) {
+                        $stmt = $pdo->prepare("UPDATE questions SET question = ?, answer = ? WHERE id = ?");
+                        $stmt->execute([$updatedQuestion, $updatedAnswer, $questionId]);
+                        $Message = "✅ Question updated successfully.";
+                    } else {
+                        $Message = "❌ Please provide both updated question and answer.";
+                    }
+                }
+
+                // Fetch all users
+                $stmt = $pdo->query("SELECT id, username, user_note, score, is_admin FROM users");
+                $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // Delete user
+                if (isset($_POST['delete_user'], $_POST['user_id'])) {
+                    $userId = (int)$_POST['user_id'];
+                    $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+                    $stmt->execute([$userId]);
+                    $Message = "✅ User deleted successfully.";
+                }
+
+                // Edit user details
+                if (isset($_POST['edit_user'], $_POST['user_id'], $_POST['updated_username'], $_POST['updated_user_note'], $_POST['updated_score'], $_POST['updated_is_admin'])) {
+                    $userId = (int)$_POST['user_id'];
+                    $updatedUsername = trim($_POST['updated_username']);
+                    $updatedUserNote = trim($_POST['updated_user_note']);
+                    $updatedScore = (int)$_POST['updated_score'];
+                    $updatedIsAdmin = isset($_POST['updated_is_admin']) ? 1 : 0;
+
+                    if (strlen($updatedUsername) > 0) {
+                        $stmt = $pdo->prepare("UPDATE users SET username = ?, user_note = ?, score = ?, is_admin = ? WHERE id = ?");
+                        $stmt->execute([$updatedUsername, $updatedUserNote, $updatedScore, $updatedIsAdmin, $userId]);
+                        $Message = "✅ User updated successfully.";
+                    } else {
+                        $Message = "❌ Invalid input. Please check the values.";
+                    }
+                }
+
+                $logs_per_page = 500; // Number of logs per page
+                $page = isset($_POST['page']) ? (int)$_POST['page'] : 1; // Get the current page (default to 1 if not set)
+                $offset = ($page - 1) * $logs_per_page; // Calculate the offset
+
+                // Fetch logs from the database
+                $query = "SELECT * FROM logs ORDER BY timestamp DESC LIMIT :limit OFFSET :offset";
+                $stmt = $pdo->prepare($query);
+                $stmt->bindParam(':limit', $logs_per_page, PDO::PARAM_INT);
+                $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+                $stmt->execute();
+                $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // Calculate total number of pages
+                $stmt = $pdo->query("SELECT COUNT(*) FROM logs");
+                $totalLogs = $stmt->fetchColumn();
+                $totalPages = ceil($totalLogs / $logs_per_page);
+                
                 break;
         }
     }
 }
 ?>
+
+
 
 <!DOCTYPE html>
 <html lang="he">
@@ -439,6 +553,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <br><p>על מנת להשתתף, עלייך להצטרף ללוח המשתתפים תחילה.<br>לחץ על הכפתור "הרשם/התחבר" והתחל לעלות בניקוד!</p>
                 </form>
             <?php endif; ?>
+            <?php if ($isAuthenticated && $user['is_admin']): ?>
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                    <button name="admin_panel" type="submit">🔧 כניסה לניהול</button>
+                </form>
+            <?php endif; ?>
         <?php elseif ($_SESSION['stage'] === 'question' && isset($_SESSION['question'])): ?>
             <h1>💡 חידה 💡</h1>
             <div class="question-box">
@@ -495,6 +615,242 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                 </form>
         <?php endif; ?>
+        
+        
+        
+        
+
+
+
+
+
+
+
+
+
+        
+        
+        <?php if ($_SESSION['stage'] === 'admin_panel' && $user['is_admin']): ?>
+    <div style="font-family: Arial, sans-serif;">
+        <h1 style="text-align: center; margin-bottom: 20px;">פאנל ניהולי</h1>
+
+        <!-- Navigation Tabs -->
+        <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+            <button onclick="showSection('questions')" class="tab-btn">ניהול שאלות</button>
+            <button onclick="showSection('users')" class="tab-btn">ניהול משתמשים</button>
+            <button onclick="showSection('logs')" class="tab-btn">ניהול לוגים</button>
+        </div>
+
+        <!-- Content Sections -->
+        <div id="questions" class="admin-section">
+            <h2 style="text-align: center;">ניהול שאלות</h2>
+            <div style="padding: 20px;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Question</th>
+                            <th>Answer</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($questions as $question): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($question['id']) ?></td>
+                                <td><?= htmlspecialchars($question['question']) ?></td>
+                                <td><?= htmlspecialchars($question['answer']) ?></td>
+                                <td>
+                                    <!-- Edit and Delete Actions -->
+                                    <form method="post" style="display: inline-block;">
+                                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                                        <input type="hidden" name="question_id" value="<?= $question['id'] ?>">
+                                        <button type="submit" name="delete_question" style="background-color: #e74c3c; color: white; padding: 5px 10px; border: none; cursor: pointer;">מחק</button>
+                                    </form>
+                                    <button onclick="toggleEditForm(<?= $question['id'] ?>)" class="edit-btn">ערוך</button>
+                                    
+                                    <!-- Edit Form -->
+                                    <div id="edit-question-<?= $question['id'] ?>" style="display: none; margin-top: 10px;">
+                                        <form method="post">
+                                            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                                            <input type="hidden" name="question_id" value="<?= $question['id'] ?>">
+                                            <input type="text" name="updated_question" placeholder="Edit question" value="<?= htmlspecialchars($question['question']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                                            <input type="text" name="updated_answer" placeholder="Edit answer" value="<?= htmlspecialchars($question['answer']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                                            <button type="submit" name="edit_question" style="background-color: #2ecc71; color: white; padding: 10px; border: none; cursor: pointer;">עדכן</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+
+                <h3>הוסף שאלה חדשה</h3>
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                    <input type="text" name="new_question" placeholder="רשום שאלה" required style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                    <input type="text" name="new_answer" placeholder="רשום תשובה" required style="width: 100%; padding: 10px; margin-bottom: 20px;">
+                    <button type="submit" name="add_question" style="background-color: #3498db; color: white; padding: 10px; border: none; cursor: pointer;">הוסף שאלה</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="users" class="admin-section" style="display: none;">
+            <h2 style="text-align: center;">ניהול משתמשים</h2>
+            <div style="padding: 20px;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Note</th>
+                            <th>Score</th>
+                            <th>Admin</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($users as $user): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($user['id']) ?></td>
+                                <td><?= htmlspecialchars($user['username']) ?></td>
+                                <td><?= htmlspecialchars($user['user_note']) ?></td>
+                                <td><?= htmlspecialchars($user['score']) ?></td>
+                                <td><?= $user['is_admin'] ? 'Yes' : 'No' ?></td>
+                                <td>
+                                    <!-- Edit and Delete Actions -->
+                                    <form method="post" style="display: inline-block;">
+                                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                                        <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                        <button type="submit" name="delete_user" style="background-color: #e74c3c; color: white; padding: 5px 10px; border: none; cursor: pointer;">מחק</button>
+                                    </form>
+                                    <button onclick="toggleEditUserForm(<?= $user['id'] ?>)" class="edit-btn">ערוך</button>
+
+                                    <!-- Edit User Form -->
+                                    <div id="edit-user-<?= $user['id'] ?>" style="display: none; margin-top: 10px;">
+                                        <form method="post">
+                                            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                                            <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                            <input type="text" name="updated_username" placeholder="Edit username" value="<?= htmlspecialchars($user['username']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                                            <input type="text" name="updated_user_note" placeholder="Edit user note" value="<?= htmlspecialchars($user['user_note']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                                            <input type="number" name="updated_score" placeholder="Edit score" value="<?= htmlspecialchars($user['score']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                                            <label for="updated_is_admin" style="font-weight: bold;">מנהל</label>
+                                            <input type="checkbox" name="updated_is_admin" <?= $user['is_admin'] ? 'checked' : '' ?> style="margin-bottom: 20px;">
+                                            <button type="submit" name="edit_user" style="background-color: #2ecc71; color: white; padding: 10px; border: none; cursor: pointer;">עדכן משתמש</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Logs Management Section -->
+        <div id="logs" class="admin-section" style="display: none;">
+            <h2 style="text-align: center;">ניהול לוגים</h2>
+            <div style="padding: 20px;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Error Message</th>
+                            <th>Error Type</th>
+                            <th>Username</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($logs as $log): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($log['id']) ?></td>
+                                <td><?= htmlspecialchars($log['error_message']) ?></td>
+                                <td><?= htmlspecialchars($log['error_type']) ?></td>
+                                <td><?= htmlspecialchars($log['username']) ?></td>
+                                <td><?= htmlspecialchars($log['timestamp']) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+
+                <div style="text-align: center;">
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>"> <!-- Include CSRF Token -->
+                        <input type="hidden" name="page" value="<?= $page + 1 ?>"> <!-- Page value for next logs -->
+                        <button type="submit" style="background-color: #3498db; color: white; padding: 10px 20px; border: none; cursor: pointer;">
+                            הצג לוגים נוספים
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+
+        <form method="post" style="text-align: center;">
+            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+            <button type="submit" name="set_homepage" style="background-color: #95a5a6; color: white; padding: 10px 20px; border: none; cursor: pointer;">Go Back to Game</button>
+        </form>
+    </div>
+
+    <script>
+        // Function to toggle between sections
+        function showSection(section) {
+            const sections = document.querySelectorAll('.admin-section');
+            sections.forEach(function(sec) {
+                sec.style.display = 'none';  // Hide all sections
+            });
+            document.getElementById(section).style.display = 'block';  // Show selected section
+        }
+
+        // Function to toggle the visibility of the edit question form
+        function toggleEditForm(questionId) {
+            const form = document.getElementById('edit-question-' + questionId);
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Function to toggle the visibility of the edit user form
+        function toggleEditUserForm(userId) {
+            const form = document.getElementById('edit-user-' + userId);
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+    </script>
+<?php endif; ?>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         <?php if (!empty($scoreboardArray)): ?> 
             <style>
@@ -535,7 +891,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </style>
 
             <?php 
-                $currentUsername = isset($user['username']) ? $user['username'] : null; 
+                $currentUsername = isset($_SESSION['username']) ? $_SESSION['username'] : null; 
             ?>
 
             <div class="scoreboard">
@@ -562,12 +918,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </ul>
             </div>
         <?php endif; ?>
-
-
-
-
-
-
     </div>
 </body>
 </html>
