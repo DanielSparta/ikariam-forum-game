@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="he">
 <head>
@@ -257,9 +256,8 @@
 
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                <button type="submit" name="change_question">🔄 החלף שאלה</button>
+                <button type="submit" name="replace_question">🔄 החלף שאלה</button>
             </form>
-
 
             <?php if (!empty($Message)): ?>
                 <p class="<?= str_starts_with($Message, '✅') ? 'correct' : 'error' ?>"> <?= $Message ?> </p>
@@ -301,22 +299,7 @@
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                 </form>
         <?php endif; ?>
-        
-        
-        
-        
-
-
-
-
-
-
-
-
-
-        
-        
-        <?php if ($_SESSION['stage'] === 'admin_panel' && $user['is_admin']): ?>
+    <?php if ($_SESSION['stage'] === 'admin_panel' && $user['is_admin']): ?>
     <div style="font-family: Arial, sans-serif;">
         <h1 style="text-align: center; margin-bottom: 20px;">פאנל ניהולי</h1>
 
@@ -502,43 +485,7 @@
         }
     </script>
 <?php endif; ?>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        <?php if (!empty($scoreboardArray)): ?> 
+<?php if (!empty($scoreboardArray)): ?> 
             <style>
                 /* Gold Shine Animation */
                 @keyframes shine {
