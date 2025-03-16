@@ -21,7 +21,7 @@ function ensureTablesExist(PDO $pdo): void {
             user_note VARCHAR(255) NOT NULL,
             token VARCHAR(64) NOT NULL,
             score INT DEFAULT 0,
-            answered_questions TEXT DEFAULT '',
+            answered_questions TEXT, -- Removed DEFAULT ''
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )",
         "CREATE TABLE IF NOT EXISTS questions (
@@ -91,7 +91,6 @@ function fetchScoreboard(PDO $pdo): array {
     return $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
 }
 
-
 // Retrieve authenticated user data
 function getAuthenticatedUser(PDO $pdo, ?string $authToken): ?array {
     if (!$authToken) return null;
@@ -100,7 +99,6 @@ function getAuthenticatedUser(PDO $pdo, ?string $authToken): ?array {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     return $user ?: null; // Ensure `false` is converted to `null`
 }
-
 
 // Fetch a random unanswered question
 function fetchRandomQuestion(PDO $pdo, array $answeredQuestions): ?array {
@@ -133,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
         $csrf_error = "❌ שגיאה: csrf token לא תואם, אנא נסה שוב. ❌";
     }
-    
+
     if (empty($csrf_error)) {
         if (!$isAuthenticated) {
             header('Location: login.php');
@@ -144,24 +142,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $answeredQuestions = json_decode($user['answered_questions'] ?? '[]', true) ?: [];
         $Message = "";
 
-        if(isset($_POST['settings']))
+        if (isset($_POST['settings']))
             $_SESSION['stage'] = "settings";
-        if(isset($_POST['set_homepage']))
+        if (isset($_POST['set_homepage']))
             header("Location: index.php");
-            if (isset($_POST['usertext'])) {
-                $userNote = trim($_POST['usertext']); // Remove leading/trailing spaces
-                
-                // Enforce max length of 25 characters
-                if (mb_strlen($userNote) > 73) {
-                    $Message = "❌ הערה ארוכה מדי (מקסימום 25 תווים)";
-                } 
-                // If valid, update the database
-                else {
-                    $stmt = $pdo->prepare("UPDATE users SET user_note = ? WHERE username = ?");
-                    $stmt->execute([htmlspecialchars($userNote), $user['username']]);
-                    $Message = "✅ ההערה עודכנה בהצלחה";
-                }
-            }            
+
+        if (isset($_POST['usertext'])) {
+            $userNote = trim($_POST['usertext']);
+            if (strlen($userNote) > 73) {
+                $Message = "❌ הערה ארוכה מדי (מקסימום 25 תווים)";
+            } else {
+                $stmt = $pdo->prepare("UPDATE users SET user_note = ? WHERE username = ?");
+                $stmt->execute([htmlspecialchars($userNote), $user['username']]);
+                $Message = "✅ ההערה עודכנה בהצלחה";
+            }
+        }
 
         switch ($_SESSION['stage']) {
             case 'start':
@@ -192,23 +187,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $Message = "❌ תשובה שגויה";
                     }
                 }
-
-                if (isset($_POST['replace_question'])) {
-                    $_SESSION['question'] = fetchRandomQuestion($pdo, $answeredQuestions);
-                    $_SESSION['stage'] = $_SESSION['question'] ? 'question' : 'final';
-                }
                 break;
 
             case 'final':
-                if (isset($_POST['player'])) {
-                    $stmt = $pdo->prepare("UPDATE users SET score = score + ? WHERE username = ?");
-                    $stmt->execute([$_SESSION['score'], htmlspecialchars($_POST['player'])]);
-                }
                 $_SESSION['stage'] = 'finish';
-                break;
-
-            case 'finish':
-                logAction($pdo, "User completed the quiz with a score of {$_SESSION['score']}", 'info', $user['id'], $user['username']);
                 break;
 
             case 'settings':
@@ -217,6 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="he">
 <head>

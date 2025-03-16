@@ -1,7 +1,7 @@
 <?php
 $host = 'localhost';
 $dbname = 'ikariam_quiz'; // Your database name
-$username = 'ubuntu'; // Default username for XAMPP MySQL
+$username = 'root'; // Default username for XAMPP MySQL
 $password = ''; // Default password for XAMPP MySQL (empty)
 
 try {

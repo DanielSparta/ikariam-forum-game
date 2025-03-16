@@ -8,7 +8,7 @@ class Database {
     private mysqli $conn;
 
     public function __construct() {
-        $this->conn = new mysqli("localhost", "ubuntu", "", "ikariam_quiz");
+        $this->conn = new mysqli("localhost", "root", "", "ikariam_quiz");
 
         if ($this->conn->connect_error) {
             die("Database connection failed: " . $this->conn->connect_error);
@@ -18,6 +18,18 @@ class Database {
     }
 
     private function initializeTables(): void {
+        $this->conn->query("
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(255) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                token VARCHAR(64) NOT NULL,
+                score INT DEFAULT 0,
+                answered_questions JSON DEFAULT NULL, -- Ensure it's JSON-compatible
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+
         $this->conn->query("
             CREATE TABLE IF NOT EXISTS logs (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -68,47 +80,12 @@ function validateCsrfToken(string $token): bool {
 }
 
 /**
- * User Authentication
- */
-function getAuthenticatedUser(mysqli $db, ?string $authToken): ?array {
-    if (!$authToken) {
-        return null;
-    }
-
-    $stmt = $db->prepare("SELECT id, username, score FROM users WHERE token = ?");
-    $stmt->bind_param("s", $authToken);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $user = $result->fetch_assoc();
-    $stmt->close();
-
-    return $user ?: null;
-}
-
-// Fetch scoreboard data (Fixed for MySQLi)
-function fetchScoreboard(mysqli $db): array {
-    $stmt = $db->query("SELECT username, score, user_note FROM users ORDER BY score DESC");
-    return $stmt ? $stmt->fetch_all(MYSQLI_ASSOC) : [];
-}
-
-$authToken = $_COOKIE['auth_token'] ?? null;
-$user = getAuthenticatedUser($mysqli, $authToken);
-$isAuthenticated = (bool) $user;
-$scoreboardArray = fetchScoreboard($mysqli);
-
-if ($isAuthenticated) {
-    $_SESSION['is_registred'] = true;
-    $_SESSION['username'] = $user['username'];
-    logAction($mysqli, "User authenticated via token.", "info", $user['id'], $user['username']);
-}
-
-/**
  * Handle Login/Register Requests
  */
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['password'], $_POST['csrf_token'])) { 
-    if (!isset($_POST['csrf_token']) || !is_string($_POST['csrf_token']) || !validateCsrfToken($_POST['csrf_token'])) {
+    if (!validateCsrfToken($_POST['csrf_token'])) {
         $error = "❌ שגיאה: CSRF Token לא תקין.";
         logAction($mysqli, "CSRF token validation failed.", "error");
     } else {
@@ -120,15 +97,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                 $error = "❌ שגיאה: שם המשתמש לא יכול להיות ארוך מ-20 תווים.";
                 logAction($mysqli, "Username too long: {$username}.", "error");
             }
-            elseif (stripos(trim($username), "﷽") !== false)
-            {
+            elseif (stripos(trim($username), "﷽") !== false) {
                 $error = "❌ התו שאתה מנסה להשתמש בו נחסם";
-            }
-            else {
+            } else {
                 $stmt = $mysqli->prepare("SELECT id, password FROM users WHERE username = ?");
                 $stmt->bind_param("s", $username);
                 $stmt->execute();
-                $stmt->store_result();        
+                $stmt->store_result();
+
                 if ($stmt->num_rows > 0) { // User exists, validate password
                     $stmt->bind_result($userId, $hashedPassword);
                     $stmt->fetch();
@@ -155,9 +131,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                 } else { // Register new user
                     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                     $token = bin2hex(random_bytes(32));
+                    $answeredQuestions = '[]'; // Valid JSON default value
 
-                    $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, token) VALUES (?, ?, ?)");
-                    $insertStmt->bind_param("sss", $username, $hashedPassword, $token);
+                    $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, token, answered_questions) VALUES (?, ?, ?, ?)");
+                    $insertStmt->bind_param("ssss", $username, $hashedPassword, $token, $answeredQuestions);
 
                     if ($insertStmt->execute()) {
                         logAction($mysqli, "New user registered: {$username}.", "info");
@@ -183,9 +160,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
     }
 }
 
-
 $mysqli->close();
 ?>
+
 <!DOCTYPE html>
 <html lang="he">
 <head>
