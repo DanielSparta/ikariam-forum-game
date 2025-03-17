@@ -228,6 +228,7 @@
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                     <button name="settings" type="submit">⚙️ הגדרות</button>
                     <hr>
+                    <p>מוזמנים לשתף את האתר: http://ikariamforumgame.atwebpages.com</p>
                 </form>
             <?php else: ?>
                 <form method="post">
@@ -235,6 +236,7 @@
                     <button type="submit">🔑 הרשם / התחבר</button>
                     <hr>
                     <br><p>על מנת להשתתף, עלייך להצטרף ללוח המשתתפים תחילה.<br>לחץ על הכפתור "הרשם/התחבר" והתחל לעלות בניקוד!</p>
+                    <p>מוזמנים לשתף את האתר: http://ikariamforumgame.atwebpages.com</p>
                 </form>
             <?php endif; ?>
             <?php if ($isAuthenticated && $user['is_admin']): ?>
@@ -393,7 +395,7 @@
                                         <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
                                         <button type="submit" name="delete_user" style="background-color: #e74c3c; color: white; padding: 5px 10px; border: none; cursor: pointer;">מחק</button>
                                     </form>
-                                    <button onclick="toggleEditUserForm(<?= $user['id'] ?>)" class="edit-btn">ערוך</button>
+                                    <button onclick="toggleEditUserForm(<?= $user['id'] ?>)" style="background-color: #e74c3c; color: white; padding: 5px 10px; border: none; cursor: pointer;">ערוך</button>
 
                                     <!-- Edit User Form -->
                                     <div id="edit-user-<?= $user['id'] ?>" style="display: none; margin-top: 10px;">
@@ -458,7 +460,7 @@
 
         <form method="post" style="text-align: center;">
             <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-            <button type="submit" name="set_homepage" style="background-color: #95a5a6; color: white; padding: 10px 20px; border: none; cursor: pointer;">Go Back to Game</button>
+            <button type="submit" name="set_homepage" style="background-color: #95a5a6; color: white; padding: 10px 20px; border: none; cursor: pointer;">חזור למסך הבית</button>
         </form>
     </div>
 
@@ -539,8 +541,6 @@
                             <span class="nickname <?= $isCurrentUser ? 'gold-shine' : '' ?>">
                                 <?= htmlspecialchars($player['username']) ?> - <?= (int)$player['score'] ?>
                             </span>
-
-                            <!-- User Comment (Minimal Space, Styled Like a Comment) -->
                             <?php if (!empty($player['user_note'])): ?>
                                 <div class="user-note">
                                     <?= htmlspecialchars($player['user_note']) ?>

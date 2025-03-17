@@ -108,10 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
     if (!validateCsrfToken($_POST['csrf_token'])) {
         $error = "❌ שגיאה: CSRF Token לא תקין.";
         logAction($mysqli, "CSRF token validation failed.", "error");
-    } elseif (!isIpv4()) {
-        $error = "❌ שגיאה: רק כתובת IPv4 מורשית להתחבר.";
-        logAction($mysqli, "Non-IPv4 request attempted.", "error");
-    } elseif (!isRequestAllowed()) {
+    }
+    elseif (!isRequestAllowed()) {
         $error = "❌ שגיאה: יש להמתין 10 שניות בין כל ניסיון.";
         logAction($mysqli, "Login Request rate limit exceeded for: {$username}.", "info", null, $_SERVER['REMOTE_ADDR']);
     } else {
