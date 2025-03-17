@@ -15,35 +15,39 @@ function verifyCsrfToken(string $csrfToken): bool {
 function ensureTablesExist(PDO $pdo): void {
     $queries = [
         "CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    user_note VARCHAR(255) NOT NULL,
-    token VARCHAR(64) NOT NULL,
-    score INT DEFAULT 0,
-    answered_questions TEXT, 
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_admin TINYINT(1) DEFAULT 0 
-);",
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(255) UNIQUE,
+            password VARCHAR(255),
+            user_note VARCHAR(255),
+            token VARCHAR(64),
+            score INT DEFAULT 0,
+            answered_questions TEXT, 
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_admin TINYINT(1) DEFAULT 0 
+        );",
         "CREATE TABLE IF NOT EXISTS questions (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            question TEXT NOT NULL,
-            answer VARCHAR(255) NOT NULL
+            question TEXT,
+            answer VARCHAR(255)
         )",
         "CREATE TABLE IF NOT EXISTS logs (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                error_message TEXT NULL,
-                error_type VARCHAR(50) NULL,
-                user_ip VARCHAR(255) NOT NULL,
-                user_agent TEXT NOT NULL,
-                user_id INT NULL,
-                username VARCHAR(255) NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )"
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            error_message TEXT,
+            error_type VARCHAR(50),
+            user_ip VARCHAR(255),
+            user_agent TEXT,
+            user_id INT,
+            username VARCHAR(255),
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )"
     ];
 
     foreach ($queries as $query) {
-        $pdo->exec($query);
+        try {
+            $pdo->exec($query);
+        } catch (Exception $e) {
+            logAction($pdo, "Database error: " . $e->getMessage(), 'Database Error');
+        }
     }
 
     // Check if the 'DanielSparta' user exists, if not, create it
@@ -68,8 +72,8 @@ function logAction(PDO $pdo, string $message, string $type, ?int $user_id = null
     $stmt->execute([
         $message, 
         $type, 
-        $_SERVER['REMOTE_ADDR'], 
-        $_SERVER['HTTP_USER_AGENT'], 
+        $_SERVER['REMOTE_ADDR'] ?? 'Unknown IP', 
+        $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown User-Agent', 
         $user_id, 
         $username
     ]);
@@ -78,14 +82,14 @@ function logAction(PDO $pdo, string $message, string $type, ?int $user_id = null
 // Custom error handler
 function customErrorHandler($level, $message, $file, $line) {
     global $pdo, $user;
-    $user = $user ?? ['id' => null, 'username' => null];  // Default empty user data
+    $user = $user ?? ['id' => null, 'username' => null];
     $errorType = match ($level) {
         E_ERROR => 'Fatal Error',
         E_WARNING => 'Warning',
         E_NOTICE => 'Notice',
         default => 'Unknown Error',
     };
-    logAction($pdo, $message, $errorType, $user['id'] ?? null, $user['username'] ?? null);
+    logAction($pdo, "$errorType: $message in $file on line $line", $errorType, $user['id'] ?? null, $user['username'] ?? null);
 }
 set_error_handler('customErrorHandler');
 
@@ -94,11 +98,12 @@ function handleFatalError() {
     global $pdo, $user;
     if ($error = error_get_last()) {
         if (in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
-            logAction($pdo, $error['message'], 'Fatal Error', $user['id'] ?? null, $user['username'] ?? null);
+            logAction($pdo, "Fatal Error: {$error['message']} in {$error['file']} on line {$error['line']}", 'Fatal Error', $user['id'] ?? null, $user['username'] ?? null);
         }
     }
 }
 register_shutdown_function('handleFatalError');
+
 
 // Fetch scoreboard data
 function fetchScoreboard(PDO $pdo): array {
@@ -143,7 +148,9 @@ $authToken = $_COOKIE['auth_token'] ?? null;
 $user = getAuthenticatedUser($pdo, $authToken);
 $isAuthenticated = (bool) $user;
 $_SESSION['score'] = $user['score'] ?? 0;
-$_SESSION['username'] = $user['username'];
+$_SESSION['username'] = $user['username'] ?? 'not logged';
+$_SESSION['user_id'] = $user['id'] ?? '0';
+logAction($pdo, "User entered site", 'info', $_SESSION['user_id'], $_SESSION['username']);
 $scoreboardArray = fetchScoreboard($pdo);
 
 // CSRF Token Error
@@ -179,7 +186,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $stmt = $pdo->prepare("UPDATE users SET user_note = ? WHERE username = ?");
                 // Ensure $userNote is never null
-                $stmt->execute([htmlspecialchars($userNote ?: ''), $user['username']]);
+                $userNote = $userNote ?? '';
+                $user['username'] = $_SESSION['username'] ?? 'null username';
+                $stmt->execute([htmlspecialchars($userNote), $user['username']]);
                 $Message = "✅ ההערה עודכנה בהצלחה";
                 logAction($pdo, "User note updated", 'info', $user['id'], $user['username']);
                 
@@ -291,12 +300,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                $logs_per_page = 500; // Number of logs per page
+                $logs_per_page = 100; // Number of logs per page
                 $page = isset($_POST['page']) ? (int)$_POST['page'] : 1; // Get the current page (default to 1 if not set)
                 $offset = ($page - 1) * $logs_per_page; // Calculate the offset
 
                 // Fetch logs from the database
-                $query = "SELECT * FROM logs ORDER BY timestamp DESC LIMIT :limit OFFSET :offset";
+                $query = "SELECT error_type, error_message, user_ip, username, timestamp FROM logs ORDER BY id DESC LIMIT :limit OFFSET :offset";
                 $stmt = $pdo->prepare($query);
                 $stmt->bindParam(':limit', $logs_per_page, PDO::PARAM_INT);
                 $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);

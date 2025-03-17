@@ -117,14 +117,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                         setcookie("auth_token", $newToken, time() + (86400 * 30), "/", "", false, true);
                         $_SESSION['is_registred'] = true;
                         $_SESSION['username'] = $fetchedUsername;
-
-                        logAction($mysqli, "User logged in.", "info", $userId, $fetchedUsername);
+                        logAction($mysqli, "User logged in.", "info", username: $fetchedUsername);
 
                         header("Location: login.php");
                         exit;
                     } else {
                         $error = "❌ שגיאה: סיסמה שגויה.";
-                        logAction($mysqli, "Incorrect password attempt for {$username}.", "error", null, $_SERVER['REMOTE_ADDR']);
+                        logAction($mysqli, "Incorrect password attempt for {$username}.", "error");
                     }
                 } else { // Register new user
                     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);

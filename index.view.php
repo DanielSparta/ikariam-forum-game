@@ -212,7 +212,7 @@
 <body>
     <div dir="rtl" class="container">
     <img src="https://i.gyazo.com/2d655af08821f93ca232d3e338cae1c0.png" style="max-width: 90%; height: auto;">
-        <?php if ($_SESSION['stage'] === 'welcome_page'): ?>
+        <?php if (isset($_SESSION['stage']) && $_SESSION['stage'] === 'welcome_page'): ?>
             <h1>אתגר חדר הבריחה</h1>
             <p> ברוכים הבאים לחדר הבריחה של פורום איקרים! כאן תמצאו חידות ושאלות, חלקן קשורות למשחק, וחלקן לא. החידות לא בהכרח מצריכות ידע קודם במשחק! המטרה שלכם היא לענות על כמה שיותר חידות ושאלות, ובכך להשיג כמות ניקוד גבוהה יותר משל שאר המשתתפים! מי יתגלה כפותר החידות הטוב ביותר?</p>
             <p><b>🏆 3 השחקנים המובילים יזכו בקופוני אמברוסיה שווים! 🏆</b></p>
@@ -245,10 +245,10 @@
                     <button name="admin_panel" type="submit">🔧 כניסה לניהול</button>
                 </form>
             <?php endif; ?>
-        <?php elseif ($_SESSION['stage'] === 'question' && isset($_SESSION['question'])): ?>
+            <?php elseif (isset($_SESSION['stage']) && $_SESSION['stage'] === 'question' && isset($_SESSION['question'])): ?>
             <h1>💡 חידה 💡</h1>
             <div class="question-box">
-                <?= htmlspecialchars($_SESSION['question']['question']) ?>
+            <?= isset($_SESSION['question']['question']) ? $_SESSION['question']['question'] : 'שגיאה בהצגת השאלה, אנא הצג את מסך בפני לדניאל ספרטה :)' ?>
             </div>
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
@@ -265,7 +265,7 @@
                 <p class="<?= str_starts_with($Message, '✅') ? 'correct' : 'error' ?>"> <?= $Message ?> </p>
             <?php endif; ?>
 
-        <?php elseif ($_SESSION['stage'] === 'final'): ?>
+            <?php elseif (isset($_SESSION['stage']) && $_SESSION['stage'] === 'final'): ?>
             <?php $_SESSION['stage'] = "welcome_page"; ?>
             <h1>🎉 הודעת מערכת</h1>
             <p>כל הכבוד! ענית על כל השאלות הקיימות במאגר. המשך להתאמן, כי שאלות חדשות יתווספו בהמשך!</p>
@@ -276,7 +276,7 @@
             </form>
         <?php endif; ?>
 
-        <?php if ($_SESSION['stage'] === 'settings'): ?>
+        <?php if (isset($_SESSION['stage']) && $_SESSION['stage'] === 'settings'): ?>
             <h1>מסך ההגדרות</h1>
             <hr>
             <form method="POST">
@@ -301,7 +301,7 @@
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                 </form>
         <?php endif; ?>
-    <?php if ($_SESSION['stage'] === 'admin_panel' && $user['is_admin']): ?>
+        <?php if (isset($_SESSION['stage']) && $_SESSION['stage'] === 'admin_panel' && !empty($user['is_admin'])): ?>
     <div style="font-family: Arial, sans-serif;">
         <h1 style="text-align: center; margin-bottom: 20px;">פאנל ניהולי</h1>
 
@@ -328,9 +328,9 @@
                     <tbody>
                         <?php foreach ($questions as $question): ?>
                             <tr>
-                                <td><?= htmlspecialchars($question['id']) ?></td>
-                                <td><?= htmlspecialchars($question['question']) ?></td>
-                                <td><?= htmlspecialchars($question['answer']) ?></td>
+                            <td><?= $question['id'] ?? 'null' ?></td>
+                            <td><?= $question['question'] ?? 'null' ?></td>
+                            <td><?= $question['answer'] ?? 'null' ?></td>
                                 <td>
                                     <!-- Edit and Delete Actions -->
                                     <form method="post" style="display: inline-block;">
@@ -420,43 +420,44 @@
 
         <!-- Logs Management Section -->
         <div id="logs" class="admin-section" style="display: none;">
-            <h2 style="text-align: center;">ניהול לוגים</h2>
-            <div style="padding: 20px;">
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                    <thead>
+        <h2 style="text-align: center;">ניהול לוגים</h2>
+        <div style="padding: 20px;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; white-space: nowrap;">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Info</th>
+                        <th>User IP</th>
+                        <th>Username</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($logs as $log): ?>
                         <tr>
-                            <th>ID</th>
-                            <th>Error Message</th>
-                            <th>Error Type</th>
-                            <th>Username</th>
-                            <th>Timestamp</th>
+                            <td><?= htmlspecialchars($log['error_type']) ?></td>
+                            <td style="overflow: hidden; text-overflow: ellipsis; max-width: 400px; display: inline-block;">
+                                <?= htmlspecialchars(str_replace(["\n", "\r"], ' ', $log['error_message'])) ?>
+                            </td>
+                            <td><?= htmlspecialchars($log['user_ip']) ?></td>
+                            <td><?= htmlspecialchars($log['username'] ?? 'null username') ?></td>
+                            <td><?= htmlspecialchars($log['timestamp']) ?></td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($logs as $log): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($log['id']) ?></td>
-                                <td><?= htmlspecialchars($log['error_message']) ?></td>
-                                <td><?= htmlspecialchars($log['error_type']) ?></td>
-                                <td><?= htmlspecialchars($log['username']) ?></td>
-                                <td><?= htmlspecialchars($log['timestamp']) ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
 
-                <div style="text-align: center;">
-                    <form method="post">
-                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>"> <!-- Include CSRF Token -->
-                        <input type="hidden" name="page" value="<?= $page + 1 ?>"> <!-- Page value for next logs -->
-                        <button type="submit" style="background-color: #3498db; color: white; padding: 10px 20px; border: none; cursor: pointer;">
-                            הצג לוגים נוספים
-                        </button>
-                    </form>
-                </div>
-
+            <div style="text-align: center;">
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>"> <!-- Include CSRF Token -->
+                    <input type="hidden" name="page" value="<?= $page + 1 ?>"> <!-- Page value for next logs -->
+                    <button type="submit" style="background-color: #3498db; color: white; padding: 10px 20px; border: none; cursor: pointer;">
+                        הצג לוגים נוספים
+                    </button>
+                </form>
             </div>
         </div>
+    </div>
 
         <form method="post" style="text-align: center;">
             <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
