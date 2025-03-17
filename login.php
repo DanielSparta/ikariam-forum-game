@@ -125,28 +125,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                         $error = "❌ שגיאה: סיסמה שגויה.";
                         logAction($mysqli, "Incorrect password attempt for {$username}.", "error");
                     }
-                } else { // Register new user
-                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                    $token = bin2hex(random_bytes(32));
-                    $answeredQuestions = '[]'; // Valid JSON default value
-                    $user_note = ""; // Default empty user note.
-
-                    $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, user_note, token, answered_questions) VALUES (?, ?, ?, ?, ?)");
-                    $insertStmt->bind_param("sssss", $username, $hashedPassword, $user_note, $token, $answeredQuestions);
-
-                    if ($insertStmt->execute()) {
-                        logAction($mysqli, "New user registered: {$username}.", "info");
-                        $_SESSION['is_registred'] = true;
-                        $_SESSION['username'] = $username;
-                        setcookie("auth_token", $token, time() + (86400 * 30), "/", "", false, true);
-                        header("Location: login.php");
-                        exit;
+                } else { // Validate username length (max 30 characters)
+                    if (mb_strlen($username) > 30) {
+                        $error = "❌ שגיאה: שם המשתמש חייב להיות עד 30 תווים.";
+                        logAction($mysqli, "Failed registration attempt: Username too long ({$username}).", "error");
                     } else {
-                        $error = "❌ שגיאה: שם המשתמש כבר קיים.";
-                        logAction($mysqli, "Failed registration attempt: {$username}.", "error");
+                        // Register new user
+                        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                        $token = bin2hex(random_bytes(32));
+                        $answeredQuestions = '[]'; // Valid JSON default value
+                        $user_note = ""; // Default empty user note.
+                    
+                        $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, user_note, token, answered_questions) VALUES (?, ?, ?, ?, ?)");
+                        $insertStmt->bind_param("sssss", $username, $hashedPassword, $user_note, $token, $answeredQuestions);
+                    
+                        if ($insertStmt->execute()) {
+                            logAction($mysqli, "New user registered: {$username}.", "info");
+                            $_SESSION['is_registred'] = true;
+                            $_SESSION['username'] = $username;
+                            setcookie("auth_token", $token, time() + (86400 * 30), "/", "", false, true);
+                            header("Location: login.php");
+                            exit;
+                        } else {
+                            $error = "❌ שגיאה: שם המשתמש כבר קיים.";
+                            logAction($mysqli, "Failed registration attempt: {$username}.", "error");
+                        }
+                    
+                        $insertStmt->close();
                     }
-
-                    $insertStmt->close();
+                    
                 }
 
                 $stmt->close();

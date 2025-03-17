@@ -240,6 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt = $pdo->prepare("DELETE FROM questions WHERE id = ?");
                     $stmt->execute([$questionId]);
                     $Message = "✅ השאלה נמחקה בהצלחה.";
+                    logAction($pdo, "Question ID " . $questionId . " Deleted", 'info', $_SESSION['user_id'], $_SESSION['username']);
                 }
 
                 // Add new question
@@ -250,6 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (strlen($newQuestion) > 0 && strlen($newAnswer) > 0) {
                         $stmt = $pdo->prepare("INSERT INTO questions (question, answer) VALUES (?, ?)");
                         $stmt->execute([$newQuestion, $newAnswer]);
+                        logAction($pdo, "Question Added: " . $newQuestion, 'info', $_SESSION['user_id'], $_SESSION['username']);
                         $Message = "✅ השאלה נוספה בהצלחה.";
                     } else {
                         $Message = "❌ אנא ספק שאלה וגם תשובה.";
@@ -261,13 +263,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $questionId = (int)$_POST['question_id'];
                     $updatedQuestion = trim($_POST['updated_question']);
                     $updatedAnswer = trim($_POST['updated_answer']);
+                    logAction($pdo, "Question ID " . $questionId . " Edited", 'info', $_SESSION['user_id'], $_SESSION['username']);
 
                     if (strlen($updatedQuestion) > 0 && strlen($updatedAnswer) > 0) {
                         $stmt = $pdo->prepare("UPDATE questions SET question = ?, answer = ? WHERE id = ?");
                         $stmt->execute([$updatedQuestion, $updatedAnswer, $questionId]);
-                        $Message = "✅ Question updated successfully.";
+                        $Message = "✅ השאלה עודכנה בהצלחה";
                     } else {
-                        $Message = "❌ Please provide both updated question and answer.";
+                        $Message = "❌ אנא רשום גם שאלה וגם תשובה על מנת לעדכן";
                     }
                 }
 
@@ -280,7 +283,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $userId = (int)$_POST['user_id'];
                     $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
                     $stmt->execute([$userId]);
-                    $Message = "✅ User deleted successfully.";
+                    $Message = "✅ המשתמש נמחק בהצלחה";
+                    logAction($pdo, "User ID " . $userId . " Deleted", 'info', $_SESSION['user_id'], $_SESSION['username']);
                 }
 
                 // Edit user details
@@ -294,13 +298,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (strlen($updatedUsername) > 0) {
                         $stmt = $pdo->prepare("UPDATE users SET username = ?, user_note = ?, score = ?, is_admin = ? WHERE id = ?");
                         $stmt->execute([$updatedUsername, $updatedUserNote, $updatedScore, $updatedIsAdmin, $userId]);
-                        $Message = "✅ User updated successfully.";
+                        logAction($pdo, "User ID " . $userId . " updated", 'info', $_SESSION['user_id'], $_SESSION['username']);
+                        $Message = "✅ המשתמש עודכן בהצלחה";
                     } else {
-                        $Message = "❌ Invalid input. Please check the values.";
+                        $Message = "❌ קלט שגוי, אנא בדוק שנית מה הכנסת";
                     }
                 }
 
-                $logs_per_page = 100; // Number of logs per page
+                $logs_per_page = 200; // Number of logs per page
                 $page = isset($_POST['page']) ? (int)$_POST['page'] : 1; // Get the current page (default to 1 if not set)
                 $offset = ($page - 1) * $logs_per_page; // Calculate the offset
 
@@ -316,7 +321,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->query("SELECT COUNT(*) FROM logs");
                 $totalLogs = $stmt->fetchColumn();
                 $totalPages = ceil($totalLogs / $logs_per_page);
-                
                 break;
         }
     }
