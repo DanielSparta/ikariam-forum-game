@@ -13,33 +13,7 @@ class Database {
         if ($this->conn->connect_error) {
             die("Database connection failed: " . $this->conn->connect_error);
         }
-
-        $this->initializeTables();
     }
-
-    private function initializeTables(): void {
-        $this->conn->query("CREATE TABLE IF NOT EXISTS users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(255) NOT NULL UNIQUE,
-                password VARCHAR(255) NOT NULL,
-                token VARCHAR(64) NOT NULL,
-                score INT DEFAULT 0,
-                answered_questions JSON DEFAULT NULL, 
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )");
-
-        $this->conn->query("CREATE TABLE IF NOT EXISTS logs (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                error_message TEXT NULL,
-                error_type VARCHAR(50) NULL,
-                user_ip VARCHAR(255) NOT NULL,
-                user_agent TEXT NOT NULL,
-                user_id INT NULL,
-                username VARCHAR(255) NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )");
-    }
-
     public function getConnection(): mysqli {
         return $this->conn;
     }
@@ -53,7 +27,7 @@ $mysqli = $db->getConnection();
  */
 function logAction(mysqli $db, string $message, string $type, ?int $user_id = null, ?string $username = null): void {
     $stmt = $db->prepare("INSERT INTO logs (error_message, error_type, user_ip, user_agent, user_id, username)
-                          VALUES (?, ?, ?, ?, ?, ?)");
+                                       VALUES (?, ?, ?, ?, ?, ?)");
     $user_ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'UNKNOWN';
 
@@ -104,14 +78,13 @@ function isRequestAllowed(): bool {
  */
 $error = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['password'], $_POST['csrf_token'])) { 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['password'], $_POST['csrf_token'])) {
     if (!validateCsrfToken($_POST['csrf_token'])) {
         $error = "❌ שגיאה: CSRF Token לא תקין.";
         logAction($mysqli, "CSRF token validation failed.", "error");
-    }
-    elseif (!isRequestAllowed()) {
+    } elseif (!isRequestAllowed()) {
         $error = "❌ שגיאה: יש להמתין 10 שניות בין כל ניסיון.";
-        logAction($mysqli, "Login Request rate limit exceeded for: {$username}.", "info", null, $_SERVER['REMOTE_ADDR']);
+        logAction($mysqli, "Login Request rate limit exceeded for: {$_POST['username']}.", "info", null, $_SERVER['REMOTE_ADDR']);
     } else {
         $username = trim($_POST['username']);
         $password = $_POST['password'];
@@ -122,6 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                 logAction($mysqli, "Username too long: {$username}.", "error");
             } elseif (stripos(trim($username), "﷽") !== false) {
                 $error = "❌ התו שאתה מנסה להשתמש בו נחסם";
+                logAction($mysqli, "Invalid username character: {$username}.", "error");
             } else {
                 $stmt = $mysqli->prepare("SELECT id, username, password FROM users WHERE username = ?");
                 $stmt->bind_param("s", $username);
@@ -156,9 +130,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                     $token = bin2hex(random_bytes(32));
                     $answeredQuestions = '[]'; // Valid JSON default value
+                    $user_note = ""; // Default empty user note.
 
-                    $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, token, answered_questions) VALUES (?, ?, ?, ?)");
-                    $insertStmt->bind_param("ssss", $username, $hashedPassword, $token, $answeredQuestions);
+                    $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, user_note, token, answered_questions) VALUES (?, ?, ?, ?, ?)");
+                    $insertStmt->bind_param("sssss", $username, $hashedPassword, $user_note, $token, $answeredQuestions);
 
                     if ($insertStmt->execute()) {
                         logAction($mysqli, "New user registered: {$username}.", "info");
@@ -186,8 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
 
 $mysqli->close();
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="he">
