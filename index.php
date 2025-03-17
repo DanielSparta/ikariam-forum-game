@@ -99,7 +99,7 @@ function handleFatalError() {
     global $pdo, $user;
     if ($error = error_get_last()) {
         if (in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
-            logAction($pdo, "Fatal Error: {$error['message']} in {$error['file']} on line {$error['line']}", 'Fatal Error', $user['id'] ?? null, $user['username'] ?? null);
+            logAction($pdo, "Fatal Error: {$error['message']} in {$error['file']} on line {$error['line']}", 'Fatal Error', $user['id'] ?? null, $SESSION['username'] ?? 'not logged');
         }
     }
 }
@@ -224,15 +224,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         //new bonus points feature
                         $stmt = $pdo->query("SELECT answers FROM questions WHERE id=" . $currentQuestion['id']);
                         $answers = (int) $stmt->fetchColumn();
-                        if ($answers === 0)
-                        {
-                            $Message = "✅ תשובה נכונה - אתה הראשון שפתר את השאלה הזאת! ולכן אתה מקבל בונוס 2 נקודות";
-                            $stmt = $pdo->prepare("UPDATE users SET score = score + 2, answered_questions = ? WHERE token = ?");
-                            $stmt->execute([json_encode($answeredQuestions), $authToken]);
-                        }
-                        if ($answers === 1)
-                        {
-                            $Message = "✅ תשובה נכונה - אתה השני שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת";
+
+                        $positions = [
+                            0 => "✅ תשובה נכונה - אתה הראשון שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
+                            1 => "✅ תשובה נכונה - אתה השני שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
+                            2 => "✅ תשובה נכונה - אתה השלישי שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
+                        ];
+
+                        if (isset($positions[$answers])) {
+                            $Message = $positions[$answers];
                             $stmt = $pdo->prepare("UPDATE users SET score = score + 1, answered_questions = ? WHERE token = ?");
                             $stmt->execute([json_encode($answeredQuestions), $authToken]);
                         }

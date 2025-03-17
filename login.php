@@ -126,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                         logAction($mysqli, "Incorrect password attempt for {$username}.", "error");
                     }
                 } else { // Validate username length (max 30 characters)
-                    if (mb_strlen($username) > 30) {
+                    if (strlen($username) > 30) {
                         $error = "❌ שגיאה: שם המשתמש חייב להיות עד 30 תווים.";
                         logAction($mysqli, "Failed registration attempt: Username too long ({$username}).", "error");
                     } else {
