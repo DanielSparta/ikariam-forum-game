@@ -28,7 +28,8 @@ function ensureTablesExist(PDO $pdo): void {
         "CREATE TABLE IF NOT EXISTS questions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             question TEXT,
-            answer VARCHAR(255)
+            answer VARCHAR(255),
+            answers INT DEFAULT 0
         )",
         "CREATE TABLE IF NOT EXISTS logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -187,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare("UPDATE users SET user_note = ? WHERE username = ?");
                 // Ensure $userNote is never null
                 $userNote = $userNote ?? '';
-                $user['username'] = $_SESSION['username'] ?? 'null username';
+                $user['username'] = $_SESSION['username'] ?? 'not logged';
                 $stmt->execute([htmlspecialchars($userNote), $user['username']]);
                 $Message = "✅ ההערה עודכנה בהצלחה";
                 logAction($pdo, "User note updated", 'info', $user['id'], $user['username']);
@@ -212,15 +213,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     if ($isCorrect) {
                         $_SESSION['score'] += 10;
-
+                        
                         if (!in_array($currentQuestion['id'], $answeredQuestions)) {
                             $answeredQuestions[] = $currentQuestion['id'];
                             $stmt = $pdo->prepare("UPDATE users SET score = score + 10, answered_questions = ? WHERE token = ?");
                             $stmt->execute([json_encode($answeredQuestions), $authToken]);
                         }
-
                         logAction($pdo, "Correct answer to question {$currentQuestion['id']}", 'info', $user['id'], $user['username']);
                         $Message = "✅ תשובה נכונה";
+                        //new bonus points feature
+                        $stmt = $pdo->query("SELECT answers FROM questions WHERE id=" . $currentQuestion['id']);
+                        $answers = (int) $stmt->fetchColumn();
+                        if ($answers === 0)
+                        {
+                            $Message = "✅ תשובה נכונה - אתה הראשון שפתר את השאלה הזאת! ולכן אתה מקבל בונוס 2 נקודות";
+                            $stmt = $pdo->prepare("UPDATE users SET score = score + 2, answered_questions = ? WHERE token = ?");
+                            $stmt->execute([json_encode($answeredQuestions), $authToken]);
+                        }
+                        if ($answers === 1)
+                        {
+                            $Message = "✅ תשובה נכונה - אתה השני שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת";
+                            $stmt = $pdo->prepare("UPDATE users SET score = score + 1, answered_questions = ? WHERE token = ?");
+                            $stmt->execute([json_encode($answeredQuestions), $authToken]);
+                        }
+                        //feature that shows the users how many users answers that question
+                        $stmt = $pdo->query("UPDATE questions SET answers=answers+1 WHERE id=" . $currentQuestion['id']);
                         $_SESSION['question'] = fetchRandomQuestion($pdo, $answeredQuestions);
                         $_SESSION['stage'] = $_SESSION['question'] ? 'question' : 'final';
                     } else {
@@ -249,8 +266,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $newAnswer = trim($_POST['new_answer']);
 
                     if (strlen($newQuestion) > 0 && strlen($newAnswer) > 0) {
-                        $stmt = $pdo->prepare("INSERT INTO questions (question, answer) VALUES (?, ?)");
-                        $stmt->execute([$newQuestion, $newAnswer]);
+                        $stmt = $pdo->prepare("INSERT INTO questions (question, answer, answers) VALUES (?, ?, ?)");
+                        $stmt->execute([$newQuestion, $newAnswer, 0]);
                         logAction($pdo, "Question Added: " . $newQuestion, 'info', $_SESSION['user_id'], $_SESSION['username']);
                         $Message = "✅ השאלה נוספה בהצלחה.";
                     } else {

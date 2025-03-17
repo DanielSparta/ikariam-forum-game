@@ -247,6 +247,7 @@
             <?php endif; ?>
             <?php elseif (isset($_SESSION['stage']) && $_SESSION['stage'] === 'question' && isset($_SESSION['question'])): ?>
             <h1>💡 חידה 💡</h1>
+            <!-- פיצר להוספה אולי בעתיד <h2>את חידה זו פתרו <?= (int) ($pdo->query("SELECT answers FROM questions WHERE id=" . $_SESSION['question']['id'])->fetchColumn() ?: 0)?> אנשים</h2>-->
             <div class="question-box">
             <?= isset($_SESSION['question']['question']) ? $_SESSION['question']['question'] : 'שגיאה בהצגת השאלה, אנא הצג את מסך בפני לדניאל ספרטה :)' ?>
             </div>
@@ -419,45 +420,46 @@
         </div>
 
         <!-- Logs Management Section -->
-        <div id="logs" class="admin-section" style="display: none;">
-        <h2 style="text-align: center;">ניהול לוגים</h2>
-        <div style="padding: 20px;">
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; white-space: nowrap;">
-                <thead>
+        <div dir=ltr id="logs" class="admin-section" style="display: none;">
+    <h2 style="text-align: center;">ניהול לוגים</h2>
+    <div style="padding: 20px;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; white-space: nowrap;">
+            <thead>
+                <tr>
+                    <th style="padding: 5px;">Type</th>
+                    <th style="padding: 5px;">Info</th>
+                    <th style="padding: 5px;">User IP</th>
+                    <th style="padding: 5px;">Username</th>
+                    <th style="padding: 5px;">Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($logs as $log): ?>
                     <tr>
-                        <th>Type</th>
-                        <th>Info</th>
-                        <th>User IP</th>
-                        <th>Username</th>
-                        <th>Timestamp</th>
+                        <td style="padding: 10px;"><?= htmlspecialchars($log['error_type']) ?></td>
+                        <td style="padding: 10px; overflow: hidden; text-overflow: ellipsis; max-width: 400px; display: inline-block;">
+                            <?= htmlspecialchars(preg_replace('/\s+/', ' ', $log['error_message'])) ?>
+                        </td>
+                        <td style="padding: 10px;"><?= htmlspecialchars($log['user_ip']) ?></td>
+                        <td style="padding: 10px;"><?= htmlspecialchars($log['username'] ?? 'not logged') ?></td>
+                        <td style="padding: 10px;"><?= htmlspecialchars($log['timestamp']) ?></td>
                     </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($logs as $log): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($log['error_type']) ?></td>
-                            <td style="overflow: hidden; text-overflow: ellipsis; max-width: 400px; display: inline-block;">
-                                <?= htmlspecialchars(str_replace(["\n", "\r"], ' ', $log['error_message'])) ?>
-                            </td>
-                            <td><?= htmlspecialchars($log['user_ip']) ?></td>
-                            <td><?= htmlspecialchars($log['username'] ?? 'null username') ?></td>
-                            <td><?= htmlspecialchars($log['timestamp']) ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
 
-            <div style="text-align: center;">
-                <form method="post">
-                    <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>"> <!-- Include CSRF Token -->
-                    <input type="hidden" name="page" value="<?= $page + 1 ?>"> <!-- Page value for next logs -->
-                    <button type="submit" style="background-color: #3498db; color: white; padding: 10px 20px; border: none; cursor: pointer;">
-                        הצג לוגים נוספים
-                    </button>
-                </form>
-            </div>
+        <div style="text-align: center;">
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>"> <!-- Include CSRF Token -->
+                <input type="hidden" name="page" value="<?= $page + 1 ?>"> <!-- Page value for next logs -->
+                <button type="submit" style="background-color: #3498db; color: white; padding: 10px 20px; border: none; cursor: pointer;">
+                    הצג לוגים נוספים
+                </button>
+            </form>
         </div>
     </div>
+</div>
+
 
         <form method="post" style="text-align: center;">
             <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">

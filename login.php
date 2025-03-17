@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
         logAction($mysqli, "CSRF token validation failed.", "error");
     } elseif (!isRequestAllowed()) {
         $error = "❌ שגיאה: יש להמתין 10 שניות בין כל ניסיון.";
-        logAction($mysqli, "Login Request rate limit exceeded for: {$_POST['username']}.", "info", null, $_SERVER['REMOTE_ADDR']);
+        logAction($mysqli, "Login Request rate limit exceeded for: {$_POST['username']}.", "info");
     } else {
         $username = trim($_POST['username']);
         $password = $_POST['password'];
@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                         setcookie("auth_token", $newToken, time() + (86400 * 30), "/", "", false, true);
                         $_SESSION['is_registred'] = true;
                         $_SESSION['username'] = $fetchedUsername;
-                        logAction($mysqli, "User logged in.", "info", username: $fetchedUsername);
+                        logAction($mysqli, "User logged in.", "info", 0, $fetchedUsername);
 
                         header("Location: login.php");
                         exit;
