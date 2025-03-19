@@ -216,6 +216,7 @@
             <h1>אתגר חדר הבריחה</h1>
             <p> ברוכים הבאים לחדר הבריחה של פורום איקרים! כאן תמצאו חידות ושאלות, חלקן קשורות למשחק, וחלקן לא. החידות לא בהכרח מצריכות ידע קודם במשחק! המטרה שלכם היא לענות על כמה שיותר חידות ושאלות, ובכך להשיג כמות ניקוד גבוהה יותר משל שאר המשתתפים! מי יתגלה כפותר החידות הטוב ביותר?</p>
             <p><b>🏆 3 השחקנים המובילים יזכו בקופוני אמברוסיה שווים! 🏆</b></p>
+            <p>🔥 שאלות חדשות מדי יום 🔥</p>
             <br>
             <hr>
             <?php if ($isAuthenticated): ?>
@@ -228,7 +229,7 @@
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                     <button name="settings" type="submit">⚙️ הגדרות</button>
                     <hr>
-                    <p>מוזמנים לשתף את האתר: http://ikariamforumgame.atwebpages.com</p>
+                    <p>מוזמנים לשתף את האתר: https://ikaforum.servegame.com/</p>
                 </form>
             <?php else: ?>
                 <form method="post">
@@ -236,7 +237,7 @@
                     <button type="submit">🔑 הרשם / התחבר</button>
                     <hr>
                     <br><p>על מנת להשתתף, עלייך להצטרף ללוח המשתתפים תחילה.<br>לחץ על הכפתור "הרשם/התחבר" והתחל לעלות בניקוד!</p>
-                    <p>מוזמנים לשתף את האתר: http://ikariamforumgame.atwebpages.com</p>
+                    <p>מוזמנים לשתף את האתר: https://ikaforum.servegame.com/</p>
                 </form>
             <?php endif; ?>
             <?php if ($isAuthenticated && $user['is_admin']): ?>
@@ -249,7 +250,7 @@
             <h1>💡 חידה 💡</h1>
             <!-- פיצר להוספה אולי בעתיד <h2>את חידה זו פתרו <?= (int) ($pdo->query("SELECT answers FROM questions WHERE id=" . $_SESSION['question']['id'])->fetchColumn() ?: 0)?> אנשים</h2>-->
             <div class="question-box">
-            <?= isset($_SESSION['question']['question']) ? $_SESSION['question']['question'] : 'שגיאה בהצגת השאלה, אנא הצג את מסך בפני לדניאל ספרטה :)' ?>
+            <?= isset($_SESSION['question']['question']) ? $_SESSION['question']['question'] : 'שגיאה בהצגת השאלה, אנא הצג את מסך זה בפני לדניאל ספרטה :)' ?>
             </div>
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
@@ -554,6 +555,43 @@
                 </ul>
             </div>
         <?php endif; ?>
-    </div>
+        <div id="countdown-container">
+    <span id="countdown-label"></span>
+    <span id="countdown"></span>
+</div>
+
+<div id="countdown"></div>
+
+<style>
+    #countdown {
+        font-size: 22px;
+        font-weight: bold;
+        color: #ffcc00;
+        text-align: center;
+    }
+</style>
+
+<script>
+    function updateCountdown() {
+        const targetDate = new Date("April 22, 2025 00:00:00").getTime();
+        const now = new Date().getTime();
+        const difference = targetDate - now;
+        const countdownEl = document.getElementById("countdown");
+
+        if (difference > 0) {
+            const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+
+            countdownEl.innerHTML = `${days} ימים, ${hours} שעות, ${minutes} דקות`;
+        } else {
+            countdownEl.innerHTML = "🎯 האירוע הסתיים!";
+            clearInterval(timer);
+        }
+    }
+
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+</script>
 </body>
 </html>

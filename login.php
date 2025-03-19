@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
                         $updateStmt->execute();
                         $updateStmt->close();
 
-                        setcookie("auth_token", $newToken, time() + (86400 * 30), "/", "", false, true);
+                        setcookie("auth_token", $newToken, time() + (86400 * 30), "/", "", true, true);
                         $_SESSION['is_registred'] = true;
                         $_SESSION['username'] = $fetchedUsername;
                         logAction($mysqli, "User logged in.", "info", 0, $fetchedUsername);
