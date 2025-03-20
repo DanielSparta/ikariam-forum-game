@@ -6,7 +6,7 @@
     <title>חדר בריחה - פורום איקרים ישראל</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;700&display=swap" rel="stylesheet">
-    <style nonce="<?php echo $nonce; ?>">
+    <style>
         /* Reset Box-sizing and Margin/Padding */
         * {
             box-sizing: border-box;
@@ -237,7 +237,7 @@
                     <button name="settings" type="submit">⚙️ הגדרות</button>
                     <hr>
                         <span id="copyIcon" onclick="copyToClipboard()" title="העתק קישור 📋">מוזמנים לשתף את האתר: https://ikaforum.servegame.com/</span>
-                    <script nonce="<?php echo $nonce; ?>">function copyToClipboard() {
+                    <script>function copyToClipboard() {
                         const link = "https://ikaforum.servegame.com/";
                         navigator.clipboard.writeText(link).then(() => {
                             alert("הקישור הועתק ללוח!");
@@ -486,7 +486,7 @@
         </form>
     </div>
 
-    <script nonce="<?php echo $nonce; ?>">
+    <script>
         // Function to toggle between sections
         function showSection(section) {
             const sections = document.querySelectorAll('.admin-section');
@@ -580,7 +580,7 @@
 
 <div id="countdown"></div>
 
-<script nonce="<?php echo $nonce; ?>">
+<script>
     function updateCountdown() {
         const targetDate = new Date("April 22, 2025 00:00:00").getTime();
         const now = new Date().getTime();

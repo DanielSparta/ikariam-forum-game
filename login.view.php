@@ -6,7 +6,7 @@
     <title>חדר בריחה - פורום איקרים ישראל</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;700&display=swap" rel="stylesheet">
-    <style nonce="<?php echo $nonce; ?>">
+    <style>
         /* Reset Box-sizing and Margin/Padding */
         * {
             box-sizing: border-box;

@@ -1,7 +1,7 @@
 <?php
 session_start();
-$nonce = base64_encode(random_bytes(16)); // Generate a secure random nonce
-header("Content-Security-Policy: default-src 'none'; script-src 'self' 'nonce-$nonce'; style-src 'self' 'nonce-$nonce' https://fonts.googleapis.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self'; connect-src 'self'; object-src 'none'; media-src 'none'; frame-src 'none'; form-action 'self'; base-uri 'self'; upgrade-insecure-requests");
+header("Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests");
+
 
 
 
