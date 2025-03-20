@@ -171,14 +171,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['usrname'], $_POST['ps
                 $answeredQuestions = '[]'; // Valid JSON default value
                 $user_note = ""; // Default empty user note
 
+                $data = "none";
                 $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, user_note, token, answered_questions, invited_by) VALUES (?, ?, ?, ?, ?, ?)");
-                $insertStmt->bind_param("ssssss", $username, $hashedPassword, $user_note, $token, $answeredQuestions, "none");
+                $insertStmt->bind_param("ssssss", $username, $hashedPassword, $user_note, $token, $answeredQuestions, $data);
 
                 if ($insertStmt->execute()) {
                     logAction($mysqli, "New user registered: {$username}.", "info");
                     $_SESSION['is_registred'] = true;
                     $_SESSION['username'] = $username;
-                    setcookie("auth_token", $newToken, [
+                    setcookie("auth_token", $token, [
                         "expires" => time() + (86400 * 30),
                         "path" => "/",
                         "domain" => "",
