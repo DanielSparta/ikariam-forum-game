@@ -221,7 +221,6 @@
             <form method="POST" action="login.php">
                 <input type="text" name="usrname" placeholder="כינוי שיוצג בטבלת הניקוד" required>
                 <input type="password" name="psswrd" placeholder="ססמא איתה תתחברו לאתר הזה" required>
-                <input type="text" name="invited_by" placeholder="(לא חובה למלא) שם משתמש של מי שהגעתם דרכו לאתר">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <button name="login" type="submit">התחבר/הרשם</button>
             </form>
@@ -229,11 +228,20 @@
                 <p class="error"><?= htmlspecialchars($error) ?></p>
             <?php endif; ?>
         <?php else: ?>
-            <h1 class="loggedIn" dir="rtl"><?= htmlspecialchars($_SESSION['username']) ?>, נראה שאתה מחובר.</h1>
-            <form method="POST" action="index.php">
-                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                <button type="submit">התחל בחדר בריחה</button>
-            </form>
+            <?php if (isset($_SESSION['show_invited_by'])): ?>
+                <form method="POST" action="login.php">
+                    <input type="text" name="invited_by" placeholder="(לא חובה למלא) שם משתמש של מי שהגעתם דרכו לאתר">
+                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                    <button name="login" type="submit">המשך לאתר!</button>
+                </form>
+                <?php unset($_SESSION['show_invited_by']) ?>
+            <?php else: ?>
+                <h1 class="loggedIn" dir="rtl"><?= htmlspecialchars($_SESSION['username']) ?>, נראה שאתה מחובר.</h1>
+                <form method="POST" action="index.php">
+                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                    <button type="submit">התחל בחדר בריחה</button>
+                </form>
+            <?php endif; ?>
         <?php endif; ?>
 
         <?php if (!empty($scoreboardArray)): ?> 

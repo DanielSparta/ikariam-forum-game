@@ -12,9 +12,14 @@ function generateCsrfToken(): string {
     return $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 }
 
-function verifyCsrfToken(string $csrfToken): bool {
-    return ($_SESSION['csrf_token'] ?? '') === $csrfToken;
+function verifyCsrfToken(string|array $csrfToken): bool {
+    if (is_array($csrfToken)) {
+        error_log("CSRF token received as an array: " . json_encode($csrfToken));
+        return false;
+    }
+    return ($_SESSION['csrf_token']) === $csrfToken;
 }
+
 
 // Ensure required tables exist
 function ensureTablesExist(PDO $pdo): void {
@@ -298,7 +303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 // Fetch all users
-                $stmt = $pdo->query("SELECT id, username, user_note, score, is_admin FROM users");
+                $stmt = $pdo->query("SELECT id, username, user_note, invited_by, score, is_admin FROM users");
                 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                 // Delete user

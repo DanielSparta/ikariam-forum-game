@@ -395,6 +395,7 @@
                             <th>ID</th>
                             <th>Username</th>
                             <th>Note</th>
+                            <th>Invited by</th>
                             <th>Score</th>
                             <th>Admin</th>
                             <th>Actions</th>
@@ -406,6 +407,7 @@
                                 <td><?= htmlspecialchars($user['id']) ?></td>
                                 <td><?= htmlspecialchars($user['username']) ?></td>
                                 <td><?= htmlspecialchars($user['user_note']) ?></td>
+                                <td><?= htmlspecialchars($user['invited_by']) ?></td>
                                 <td><?= htmlspecialchars($user['score']) ?></td>
                                 <td><?= $user['is_admin'] ? 'Yes' : 'No' ?></td>
                                 <td>

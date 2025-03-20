@@ -81,6 +81,19 @@ function isRequestAllowed(): bool {
     return false;
 }
 
+if (isset($_SESSION['username'], $_POST['invited_by'])) {
+    if (!empty($invited_by) && strlen($invited_by) > 30) {
+        $error = "❌ שגיאה: שם המשתמש של חברך לא יכול להיות ארוך מ-30 תווים.";
+        logAction($mysqli, "Invited_by username too long: {$invited_by}.", "error");
+    }
+    else {
+        $updateStmt = $mysqli->prepare("UPDATE users SET invited_by = ? WHERE username = ?");
+        $updateStmt->bind_param("ss", $_POST['invited_by'], $_SESSION['username']);
+        $updateStmt->execute();
+        $updateStmt->close();
+    }
+}
+
 
 /**
  * Handle Login/Register Requests
@@ -90,7 +103,6 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['usrname'], $_POST['psswrd'], $_POST['csrf_token'])) {
     $username = trim($_POST['usrname']);
     $password = trim($_POST['psswrd']);
-    $invited_by = isset($_POST['invited_by']) ? trim($_POST['invited_by']) : '';
 
     // CSRF validation
     if (!validateCsrfToken($_POST['csrf_token'])) {
@@ -105,9 +117,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['usrname'], $_POST['ps
     } elseif (strlen($username) > 30) {
         $error = "❌ שגיאה: שם המשתמש לא יכול להיות ארוך מ-30 תווים.";
         logAction($mysqli, "Username too long: {$username}.", "error");
-    } elseif (!empty($invited_by) && strlen($invited_by) > 30) {
-        $error = "❌ שגיאה: שם המשתמש של חברך לא יכול להיות ארוך מ-30 תווים.";
-        logAction($mysqli, "Invited_by username too long: {$invited_by}.", "error");
     } elseif (stripos($username, "﷽") !== false) {
         $error = "❌ התו שאתה מנסה להשתמש בו נחסם";
         logAction($mysqli, "Invalid username character: {$username}.", "error");
@@ -163,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['usrname'], $_POST['ps
                 $user_note = ""; // Default empty user note
 
                 $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, user_note, token, answered_questions, invited_by) VALUES (?, ?, ?, ?, ?, ?)");
-                $insertStmt->bind_param("ssssss", $username, $hashedPassword, $user_note, $token, $answeredQuestions, $invited_by);
+                $insertStmt->bind_param("ssssss", $username, $hashedPassword, $user_note, $token, $answeredQuestions, "none");
 
                 if ($insertStmt->execute()) {
                     logAction($mysqli, "New user registered: {$username}.", "info");
