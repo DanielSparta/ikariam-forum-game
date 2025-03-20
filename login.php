@@ -187,6 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['usrname'], $_POST['ps
                         "httponly" => true,
                         "samesite" => "Strict"
                     ]);
+                    $_SESSION['show_invited_by'] = "";
                     header("Location: login.php");
                     exit;
                 } else {
