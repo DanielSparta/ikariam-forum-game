@@ -178,7 +178,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['usrname'], $_POST['ps
                     logAction($mysqli, "New user registered: {$username}.", "info");
                     $_SESSION['is_registred'] = true;
                     $_SESSION['username'] = $username;
-                    setcookie("auth_token", $token, time() + (86400 * 30), "/", "", false, true);
+                    setcookie("auth_token", $newToken, [
+                        "expires" => time() + (86400 * 30),
+                        "path" => "/",
+                        "domain" => "",
+                        "secure" => true,
+                        "httponly" => true,
+                        "samesite" => "Strict"
+                    ]);
                     header("Location: login.php");
                     exit;
                 } else {
