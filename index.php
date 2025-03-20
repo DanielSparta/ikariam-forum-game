@@ -17,7 +17,9 @@ function verifyCsrfToken(string|array $csrfToken): bool {
         error_log("CSRF token received as an array: " . json_encode($csrfToken));
         return false;
     }
-    return ($_SESSION['csrf_token']) === $csrfToken;
+    $OldCSRFToken = $_SESSION['csrf_token'];
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    return ($OldCSRFToken) === $csrfToken;
 }
 
 
@@ -192,17 +194,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header("Location: index.php");
 
         if (isset($_POST['usertext'])) {
-            $userNote = trim($_POST['usertext']);
-            if (strlen($userNote) > 73) {
-                $Message = "❌ הערה ארוכה מדי (מקסימום 25 תווים)";
+            if(is_array($_POST['usertext']))
+            {
+                $Message = "❌ אינך יכול להכניס מערך להערת משתמש";
+                logAction($pdo, "User note array try", 'info', $user['id'], $_SESSION['username']);
+            }
+            elseif (strlen($_POST['usertext']) > 73) {
+                $Message = "❌ הערה ארוכה מדי (מקסימום 73 תווים)";
+                logAction($pdo, "User note too big try", 'info', $user['id'], $_SESSION['username']);
             } else {
+                $userNote = trim($_POST['usertext']);
                 $stmt = $pdo->prepare("UPDATE users SET user_note = ? WHERE username = ?");
                 // Ensure $userNote is never null
                 $userNote = $userNote ?? '';
-                $user['username'] = $_SESSION['username'] ?? 'not logged';
                 $stmt->execute([htmlspecialchars($userNote), $_SESSION['username']]);
                 $Message = "✅ ההערה עודכנה בהצלחה";
-                logAction($pdo, "User note updated", 'info', $user['id'], $user['username']);
+                logAction($pdo, "User note updated", 'info', $user['id'], $_SESSION['username']);
                 
             }
 
@@ -219,40 +226,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'question':
                 if (isset($_POST['answer'], $_SESSION['question'])) {
-                    $currentQuestion = $_SESSION['question'];
-                    $isCorrect = stripos(trim($_POST['answer']), trim($currentQuestion['answer'])) !== false;
+                    if(is_array($_POST['answer']))
+                    {
+                        $Message = "אינך יכול להגיש תשובה כמערך";
+                    }
+                    else
+                    {
+                        $currentQuestion = $_SESSION['question'];
+                        $isCorrect = stripos(trim($_POST['answer']), trim($currentQuestion['answer'])) !== false;
 
-                    if ($isCorrect) {
-                        $_SESSION['score'] += 10;
-                        
-                        if (!in_array($currentQuestion['id'], $answeredQuestions)) {
-                            $answeredQuestions[] = $currentQuestion['id'];
-                            $stmt = $pdo->prepare("UPDATE users SET score = score + 10, answered_questions = ? WHERE token = ?");
-                            $stmt->execute([json_encode($answeredQuestions), $authToken]);
+                        if ($isCorrect) {
+                            $_SESSION['score'] += 10;
+                            
+                            if (!in_array($currentQuestion['id'], $answeredQuestions)) {
+                                $answeredQuestions[] = $currentQuestion['id'];
+                                $stmt = $pdo->prepare("UPDATE users SET score = score + 10, answered_questions = ? WHERE token = ?");
+                                $stmt->execute([json_encode($answeredQuestions), $authToken]);
+                            }
+                            logAction($pdo, "Correct answer to question {$currentQuestion['id']}", 'info', $user['id'], $user['username']);
+                            $Message = "✅ תשובה נכונה";
+                            //new bonus points feature
+                            $stmt = $pdo->query("SELECT answers FROM questions WHERE id=" . $currentQuestion['id']);
+                            $answers = (int) $stmt->fetchColumn();
+
+                            $positions = [
+                                0 => "✅ תשובה נכונה - אתה הראשון שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
+                                1 => "✅ תשובה נכונה - אתה השני שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
+                                2 => "✅ תשובה נכונה - אתה השלישי שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
+                            ];
+
+                            if (isset($positions[$answers])) {
+                                $Message = $positions[$answers];
+                                $stmt = $pdo->prepare("UPDATE users SET score = score + 1, answered_questions = ? WHERE token = ?");
+                                $stmt->execute([json_encode($answeredQuestions), $authToken]);
+                            }
+                            //feature that shows the users how many users answers that question
+                            $stmt = $pdo->query("UPDATE questions SET answers=answers+1 WHERE id=" . $currentQuestion['id']);
+                            $_SESSION['question'] = fetchRandomQuestion($pdo, $answeredQuestions);
+                            $_SESSION['stage'] = $_SESSION['question'] ? 'question' : 'final';
+                        } else {
+                            $Message = "❌ תשובה שגויה";
                         }
-                        logAction($pdo, "Correct answer to question {$currentQuestion['id']}", 'info', $user['id'], $user['username']);
-                        $Message = "✅ תשובה נכונה";
-                        //new bonus points feature
-                        $stmt = $pdo->query("SELECT answers FROM questions WHERE id=" . $currentQuestion['id']);
-                        $answers = (int) $stmt->fetchColumn();
-
-                        $positions = [
-                            0 => "✅ תשובה נכונה - אתה הראשון שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
-                            1 => "✅ תשובה נכונה - אתה השני שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
-                            2 => "✅ תשובה נכונה - אתה השלישי שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
-                        ];
-
-                        if (isset($positions[$answers])) {
-                            $Message = $positions[$answers];
-                            $stmt = $pdo->prepare("UPDATE users SET score = score + 1, answered_questions = ? WHERE token = ?");
-                            $stmt->execute([json_encode($answeredQuestions), $authToken]);
-                        }
-                        //feature that shows the users how many users answers that question
-                        $stmt = $pdo->query("UPDATE questions SET answers=answers+1 WHERE id=" . $currentQuestion['id']);
-                        $_SESSION['question'] = fetchRandomQuestion($pdo, $answeredQuestions);
-                        $_SESSION['stage'] = $_SESSION['question'] ? 'question' : 'final';
-                    } else {
-                        $Message = "❌ תשובה שגויה";
                     }
                 }
                 break;

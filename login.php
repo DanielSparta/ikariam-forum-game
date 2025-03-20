@@ -82,9 +82,13 @@ function isRequestAllowed(): bool {
 }
 
 if (isset($_SESSION['username'], $_POST['invited_by'])) {
-    if (!empty($invited_by) && strlen($invited_by) > 30) {
+    if(is_array($_POST['invited_by'])){
+        $error = "❌ שגיאה: אינך יכול להכניס מערך.";
+        logAction($mysqli, "Invited_by username array try", "error");
+    }
+    elseif (!empty($_POST['invited_by']) && strlen($_POST['invited_by']) > 30) {
         $error = "❌ שגיאה: שם המשתמש של חברך לא יכול להיות ארוך מ-30 תווים.";
-        logAction($mysqli, "Invited_by username too long: {$invited_by}.", "error");
+        logAction($mysqli, "Invited_by username too long: {$_POST['invited_by']}.", "error");
     }
     else {
         $updateStmt = $mysqli->prepare("UPDATE users SET invited_by = ? WHERE username = ?");
@@ -101,8 +105,8 @@ if (isset($_SESSION['username'], $_POST['invited_by'])) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['usrname'], $_POST['psswrd'], $_POST['csrf_token'])) {
-    $username = htmlspecialchars(trim($_POST['usrname']));
-    $password = trim($_POST['psswrd']);
+    $username = $_POST['usrname'];
+    $password = $_POST['psswrd'];
 
     // CSRF validation
     if (!validateCsrfToken($_POST['csrf_token'])) {
@@ -121,6 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['usrname'], $_POST['ps
         $error = "❌ התו שאתה מנסה להשתמש בו נחסם";
         logAction($mysqli, "Invalid username character: {$username}.", "error");
     } else {
+        $username = htmlspecialchars(trim($username));
+        $password = trim($password);
         // Check if user exists
         $stmt = $mysqli->prepare("SELECT id, username, password FROM users WHERE username = ?");
         $stmt->bind_param("s", $username);
@@ -160,45 +166,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['usrname'], $_POST['ps
                 logAction($mysqli, "Incorrect password attempt for {$username}.", "error");
             }
         } else { 
-            // Validate username length (max 30 characters) before registering
-            if (strlen($username) > 30) {
-                $error = "❌ שגיאה: שם המשתמש חייב להיות עד 30 תווים.";
-                logAction($mysqli, "Failed registration attempt: Username too long ({$username}).", "error");
+            // Register new user
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+            $token = bin2hex(random_bytes(32));
+            $answeredQuestions = '[]'; // Valid JSON default value
+            $user_note = ""; // Default empty user note
+            $data = "none";
+            $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, user_note, token, answered_questions, invited_by) VALUES (?, ?, ?, ?, ?, ?)");
+            $insertStmt->bind_param("ssssss", $username, $hashedPassword, $user_note, $token, $answeredQuestions, $data);
+            if ($insertStmt->execute()) {
+                logAction($mysqli, "New user registered: {$username}.", "info");
+                $_SESSION['is_registred'] = true;
+                $_SESSION['username'] = $username;
+                setcookie("auth_token", $token, [
+                    "expires" => time() + (86400 * 30),
+                    "path" => "/",
+                    "domain" => "",
+                    "secure" => true,
+                    "httponly" => true,
+                    "samesite" => "Strict"
+                ]);
+                $_SESSION['show_invited_by'] = "";
+                header("Location: login.php");
+                exit;
             } else {
-                // Register new user
-                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                $token = bin2hex(random_bytes(32));
-                $answeredQuestions = '[]'; // Valid JSON default value
-                $user_note = ""; // Default empty user note
-
-                $data = "none";
-                $insertStmt = $mysqli->prepare("INSERT INTO users (username, password, user_note, token, answered_questions, invited_by) VALUES (?, ?, ?, ?, ?, ?)");
-                $insertStmt->bind_param("ssssss", $username, $hashedPassword, $user_note, $token, $answeredQuestions, $data);
-
-                if ($insertStmt->execute()) {
-                    logAction($mysqli, "New user registered: {$username}.", "info");
-                    $_SESSION['is_registred'] = true;
-                    $_SESSION['username'] = $username;
-                    setcookie("auth_token", $token, [
-                        "expires" => time() + (86400 * 30),
-                        "path" => "/",
-                        "domain" => "",
-                        "secure" => true,
-                        "httponly" => true,
-                        "samesite" => "Strict"
-                    ]);
-                    $_SESSION['show_invited_by'] = "";
-                    header("Location: login.php");
-                    exit;
-                } else {
-                    $error = "❌ שגיאה: שם המשתמש כבר קיים.";
-                    logAction($mysqli, "Failed registration attempt: {$username}.", "error");
-                }
-
-                $insertStmt->close();
+                $error = "❌ שגיאה: שם המשתמש כבר קיים.";
+                logAction($mysqli, "Failed registration attempt: {$username}.", "error");
             }
+            $insertStmt->close();
         }
-
         $stmt->close();
     }
 }

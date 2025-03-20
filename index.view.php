@@ -563,7 +563,7 @@
                         <li class="player">
                             <!-- Username & Score -->
                             <span class="nickname <?= $isCurrentUser ? 'gold-shine' : '' ?>">
-                                <?= htmlspecialchars($player['username']) ?> - <?= (int)$player['score'] ?>
+                                <?= $player['username'] ?> - <?= (int)$player['score'] ?>
                             </span>
                             <?php if (!empty($player['user_note'])): ?>
                                 <div class="user-note">
