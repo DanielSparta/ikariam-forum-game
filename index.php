@@ -85,7 +85,7 @@ function logAction(PDO $pdo, string $message, string $type, ?int $user_id = null
         $message, 
         $type, 
         $_SERVER['REMOTE_ADDR'] ?? 'Unknown IP', 
-        $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown User-Agent', 
+        $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown User-Agent',   
         $user_id, 
         $username
     ]);
@@ -200,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Ensure $userNote is never null
                 $userNote = $userNote ?? '';
                 $user['username'] = $_SESSION['username'] ?? 'not logged';
-                $stmt->execute([htmlspecialchars($userNote), $user['username']]);
+                $stmt->execute([htmlspecialchars($userNote), $_SESSION['username']]);
                 $Message = "✅ ההערה עודכנה בהצלחה";
                 logAction($pdo, "User note updated", 'info', $user['id'], $user['username']);
                 

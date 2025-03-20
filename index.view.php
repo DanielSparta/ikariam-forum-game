@@ -404,11 +404,11 @@
                     <tbody>
                         <?php foreach ($users as $user): ?>
                             <tr>
-                                <td><?= htmlspecialchars($user['id']) ?></td>
-                                <td><?= htmlspecialchars($user['username']) ?></td>
-                                <td><?= htmlspecialchars($user['user_note']) ?></td>
-                                <td><?= htmlspecialchars($user['invited_by']) ?></td>
-                                <td><?= htmlspecialchars($user['score']) ?></td>
+                                <td><?= $user['id'] ?></td>
+                                <td><?= $user['username'] ?></td>
+                                <td><?= $user['user_note'] ?></td>
+                                <td><?= $user['invited_by'] ?></td>
+                                <td><?= $user['score'] ?></td>
                                 <td><?= $user['is_admin'] ? 'Yes' : 'No' ?></td>
                                 <td>
                                     <!-- Edit and Delete Actions -->
@@ -425,7 +425,7 @@
                                             <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                                             <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
                                             <input type="text" name="updated_username" placeholder="Edit username" value="<?= htmlspecialchars($user['username']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
-                                            <input type="text" name="updated_user_note" placeholder="Edit user note" value="<?= htmlspecialchars($user['user_note']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                                            <input type="text" name="updated_user_note" placeholder="Edit user note" value="<?= $user['user_note'] ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
                                             <input type="number" name="updated_score" placeholder="Edit score" value="<?= htmlspecialchars($user['score']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
                                             <label for="updated_is_admin" style="font-weight: bold;">מנהל</label>
                                             <input type="checkbox" name="updated_is_admin" <?= $user['is_admin'] ? 'checked' : '' ?> style="margin-bottom: 20px;">
@@ -567,7 +567,7 @@
                             </span>
                             <?php if (!empty($player['user_note'])): ?>
                                 <div class="user-note">
-                                    <?= htmlspecialchars($player['user_note']) ?>
+                                    <?= $player['user_note'] ?>
                                 </div>
                             <?php endif; ?>
                         </li>

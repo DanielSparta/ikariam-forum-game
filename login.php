@@ -88,7 +88,7 @@ if (isset($_SESSION['username'], $_POST['invited_by'])) {
     }
     else {
         $updateStmt = $mysqli->prepare("UPDATE users SET invited_by = ? WHERE username = ?");
-        $updateStmt->bind_param("ss", $_POST['invited_by'], $_SESSION['username']);
+        $updateStmt->bind_param("ss", htmlspecialchars($_POST['invited_by']), $_SESSION['username']);
         $updateStmt->execute();
         $updateStmt->close();
     }
@@ -101,7 +101,7 @@ if (isset($_SESSION['username'], $_POST['invited_by'])) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['usrname'], $_POST['psswrd'], $_POST['csrf_token'])) {
-    $username = trim($_POST['usrname']);
+    $username = htmlspecialchars(trim($_POST['usrname']));
     $password = trim($_POST['psswrd']);
 
     // CSRF validation

@@ -302,7 +302,7 @@
                     <!-- User Comment (Minimal Space, Styled Like a Comment) -->
                     <?php if (!empty($player['user_note'])): ?>
                         <div class="user-note">
-                            <?= htmlspecialchars($player['user_note']) ?>
+                            <?= $player['user_note'] ?>
                         </div>
                     <?php endif; ?>
                 </li>
