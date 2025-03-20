@@ -6,7 +6,7 @@
     <title>חדר בריחה - פורום איקרים ישראל</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;700&display=swap" rel="stylesheet">
-    <style>
+    <style nonce="<?php echo $nonce; ?>">
         /* Reset Box-sizing and Margin/Padding */
         * {
             box-sizing: border-box;
@@ -72,6 +72,13 @@
             margin-bottom: 20px;
             font-weight: bold;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        }
+        
+        #countdown {
+        font-size: 22px;
+        font-weight: bold;
+        color: #ffcc00;
+        text-align: center;
         }
 
         /* Input and Button Styling */
@@ -211,7 +218,7 @@
 
 <body>
     <div dir="rtl" class="container">
-    <img src="https://i.gyazo.com/2d655af08821f93ca232d3e338cae1c0.png" style="max-width: 90%; height: auto;">
+    <img src="/newsteam.png" style="max-width: 90%; height: auto;">
         <?php if (isset($_SESSION['stage']) && $_SESSION['stage'] === 'welcome_page'): ?>
             <h1>אתגר חדר הבריחה</h1>
             <p> ברוכים הבאים לחדר הבריחה של פורום איקרים! כאן תמצאו חידות ושאלות, חלקן קשורות למשחק, וחלקן לא. החידות לא בהכרח מצריכות ידע קודם במשחק! המטרה שלכם היא לענות על כמה שיותר חידות ושאלות, ובכך להשיג כמות ניקוד גבוהה יותר משל שאר המשתתפים! מי יתגלה כפותר החידות הטוב ביותר?</p>
@@ -229,7 +236,18 @@
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                     <button name="settings" type="submit">⚙️ הגדרות</button>
                     <hr>
-                    <p>מוזמנים לשתף את האתר: https://ikaforum.servegame.com/</p>
+                        <span id="copyIcon" onclick="copyToClipboard()" title="העתק קישור 📋">מוזמנים לשתף את האתר: https://ikaforum.servegame.com/</span>
+                    <script nonce="<?php echo $nonce; ?>">function copyToClipboard() {
+                        const link = "https://ikaforum.servegame.com/";
+                        navigator.clipboard.writeText(link).then(() => {
+                            alert("הקישור הועתק ללוח!");
+                        }).catch(err => {
+                            console.error("Error copying link: ", err);
+                        });
+                    }
+                    </script>
+
+                    <p>קישור לפוסט הפעילות בפורום איקרים ישראל: <a href="https://forum.ikariam.gameforge.com/forum/thread/107762">https://forum.ikariam.gameforge.com/forum/thread/107762</a></p>
                 </form>
             <?php else: ?>
                 <form method="post">
@@ -237,7 +255,7 @@
                     <button type="submit">🔑 הרשם / התחבר</button>
                     <hr>
                     <br><p>על מנת להשתתף, עלייך להצטרף ללוח המשתתפים תחילה.<br>לחץ על הכפתור "הרשם/התחבר" והתחל לעלות בניקוד!</p>
-                    <p>מוזמנים לשתף את האתר: https://ikaforum.servegame.com/</p>
+                    <p>קישור לפוסט הפעילות בפורום איקרים ישראל: <a href="https://forum.ikariam.gameforge.com/forum/thread/107762">https://forum.ikariam.gameforge.com/forum/thread/107762</a></p>
                 </form>
             <?php endif; ?>
             <?php if ($isAuthenticated && $user['is_admin']): ?>
@@ -468,7 +486,7 @@
         </form>
     </div>
 
-    <script>
+    <script nonce="<?php echo $nonce; ?>">
         // Function to toggle between sections
         function showSection(section) {
             const sections = document.querySelectorAll('.admin-section');
@@ -562,16 +580,7 @@
 
 <div id="countdown"></div>
 
-<style>
-    #countdown {
-        font-size: 22px;
-        font-weight: bold;
-        color: #ffcc00;
-        text-align: center;
-    }
-</style>
-
-<script>
+<script nonce="<?php echo $nonce; ?>">
     function updateCountdown() {
         const targetDate = new Date("April 22, 2025 00:00:00").getTime();
         const now = new Date().getTime();

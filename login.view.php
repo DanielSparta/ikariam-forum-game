@@ -6,7 +6,7 @@
     <title>חדר בריחה - פורום איקרים ישראל</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;700&display=swap" rel="stylesheet">
-    <style>
+    <style nonce="<?php echo $nonce; ?>">
         /* Reset Box-sizing and Margin/Padding */
         * {
             box-sizing: border-box;
@@ -210,7 +210,7 @@
 </head>
 <body>
     <div dir="rtl" class="container">
-        <img src="https://i.gyazo.com/2d655af08821f93ca232d3e338cae1c0.png" style="max-width: 90%; height: auto;">
+        <img src="/newsteam.png" style="max-width: 90%; height: auto;">
         
         <?php if (!isset($_SESSION['is_registred'])): ?>
             <h1 dir="rtl">מסך הרשמה/התחברות</h1>
@@ -219,8 +219,9 @@
             <p dir="rtl">מטרת ההתחברות היא על מנת שתוכלו לגשת למשתמש שלכם לאורך זמן ולהמשיך להתקדם בניקוד. בעת יצירת המשתמש, אל תשתמשו בפרטי החשבון האמיתיים של המשתמש איקרים שלכם</p>
             <br>
             <form method="POST" action="login.php">
-                <input type="text" name="username" placeholder="כינוי שיוצג בטבלת הניקוד" required>
-                <input type="password" name="password" placeholder="ססמא איתה תתחברו לאתר הזה" required>
+                <input type="text" name="usrname" placeholder="כינוי שיוצג בטבלת הניקוד" required>
+                <input type="password" name="psswrd" placeholder="ססמא איתה תתחברו לאתר הזה" required>
+                <input type="text" name="invited_by" placeholder="(לא חובה למלא) שם משתמש של מי שהגעתם דרכו לאתר">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <button name="login" type="submit">התחבר/הרשם</button>
             </form>

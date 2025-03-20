@@ -1,6 +1,10 @@
 <?php
 session_start();
 require 'db.php'; // Database connection
+$nonce = base64_encode(random_bytes(16)); // Generate a secure random nonce
+header("Content-Security-Policy: default-src 'none'; script-src 'self' 'nonce-$nonce'; style-src 'self' 'nonce-$nonce' https://fonts.googleapis.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self'; connect-src 'self'; object-src 'none'; media-src 'none'; frame-src 'none'; form-action 'self'; base-uri 'self'; upgrade-insecure-requests");
+
+
 
 // CSRF Token Generation and Validation
 function generateCsrfToken(): string {
@@ -22,6 +26,7 @@ function ensureTablesExist(PDO $pdo): void {
             token VARCHAR(64),
             score INT DEFAULT 0,
             answered_questions TEXT, 
+            invited_by TEXT, 
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_admin TINYINT(1) DEFAULT 0 
         );",
