@@ -280,7 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (isset($_POST['delete_question'], $_POST['question_id'])) {
                     if(is_array($_POST['delete_question']) || is_array($_POST['question_id']))
                     {
-                        $Message "❌ אינך יכול להכניס מערך כשאלה";
+                        $Message = "❌ אינך יכול להכניס מערך כשאלה";
                         logAction($pdo, "Question delete as ARRAY try" . $_POST['question_id'], 'info', $_SESSION['user_id'], $_SESSION['username']);
                     }
                     else {
@@ -296,7 +296,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (isset($_POST['add_question'], $_POST['new_question'], $_POST['new_answer'])) {
                     if(is_array($_POST['add_question']) || is_array($_POST['new_question']) || is_array($_POST['new_answer']))
                     {
-                        $Message "❌ אינך יכול להכניס מערך כשאלה";
+                        $Message = "❌ אינך יכול להכניס מערך כשאלה";
                         logAction($pdo, "Question add as ARRAY try", 'info', $_SESSION['user_id'], $_SESSION['username']);
                     }
                     else
@@ -317,9 +317,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Edit existing question
                 if (isset($_POST['edit_question'], $_POST['question_id'], $_POST['updated_question'], $_POST['updated_answer'])) {
-                    if(is_array($_POST['edit_question']) || is_array($_POST['question_id']) || is_array($_POST['updated_question']), is_array($_POST['updated_answer']))
+                    if(is_array($_POST['edit_question']) || is_array($_POST['question_id']) || is_array($_POST['updated_question']) || is_array($_POST['updated_answer']))
                     {
-                        $Message "❌ אינך יכול להכניס מערך";
+                        $Message = "❌ אינך יכול להכניס מערך";
                         logAction($pdo, "Question edit as ARRAY try", 'info', $_SESSION['user_id'], $_SESSION['username']);
                     }
                     else
@@ -347,7 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (isset($_POST['delete_user'], $_POST['user_id'])) {
                     if(is_array($_POST['delete_user']) || is_array($_POST['user_id']))
                     {
-                        $Message "❌ אינך יכול להכניס מערך ";
+                        $Message = "❌ אינך יכול להכניס מערך ";
                         logAction($pdo, "Deleting user as ARRAY detected" . $_POST['user_id'], 'info', $_SESSION['user_id'], $_SESSION['username']);
                     }
                     else {
@@ -363,7 +363,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (isset($_POST['edit_user'], $_POST['user_id'], $_POST['updated_username'], $_POST['updated_user_note'], $_POST['updated_score'], $_POST['updated_is_admin'])) {
                     if(is_array($_POST['edit_user']) || is_array($_POST['user_id']) || is_array($_POST['updated_username']) || is_array($_POST['updated_user_note']) || is_array($_POST['updated_score']) || is_array($_POST['updated_is_admin']))
                     {
-                        $Message "❌ אינך יכול להכניס מערך ";
+                        $Message = "❌ אינך יכול להכניס מערך ";
                         logAction($pdo, "Edit user as ARRAY detected" . $_POST['user_id'], 'info', $_SESSION['user_id'], $_SESSION['username']);
                     }
                     else {
@@ -385,9 +385,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $logs_per_page = 200; // Number of logs per page
+                $page = 1;
                 if (isset($_POST['page']) && is_array($_POST['page'])) {
                     logAction($pdo, "Load logs as ARRAY detected", 'info', $_SESSION['user_id'], $_SESSION['username']);
-                    $page = 1;
                 } else {
                     $page = isset($_POST['page']) ? (int)$_POST['page'] : 1;
                 }
