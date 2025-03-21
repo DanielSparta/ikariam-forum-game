@@ -278,41 +278,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Delete question
                 if (isset($_POST['delete_question'], $_POST['question_id'])) {
-                    $questionId = (int)$_POST['question_id'];
-                    $stmt = $pdo->prepare("DELETE FROM questions WHERE id = ?");
-                    $stmt->execute([$questionId]);
-                    $Message = "✅ השאלה נמחקה בהצלחה.";
-                    logAction($pdo, "Question ID " . $questionId . " Deleted", 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    if(is_array($_POST['delete_question']) || is_array($_POST['question_id']))
+                    {
+                        $Message "❌ אינך יכול להכניס מערך כשאלה";
+                        logAction($pdo, "Question delete as ARRAY try" . $_POST['question_id'], 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    }
+                    else {
+                        $questionId = (int)$_POST['question_id'];
+                        $stmt = $pdo->prepare("DELETE FROM questions WHERE id = ?");
+                        $stmt->execute([$questionId]);
+                        $Message = "✅ השאלה נמחקה בהצלחה.";
+                        logAction($pdo, "Question ID " . $questionId . " Deleted", 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    }
                 }
 
                 // Add new question
                 if (isset($_POST['add_question'], $_POST['new_question'], $_POST['new_answer'])) {
-                    $newQuestion = trim($_POST['new_question']);
-                    $newAnswer = trim($_POST['new_answer']);
+                    if(is_array($_POST['add_question']) || is_array($_POST['new_question']) || is_array($_POST['new_answer']))
+                    {
+                        $Message "❌ אינך יכול להכניס מערך כשאלה";
+                        logAction($pdo, "Question add as ARRAY try", 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    }
+                    else
+                    {
+                        $newQuestion = trim($_POST['new_question']);
+                        $newAnswer = trim($_POST['new_answer']);
 
-                    if (strlen($newQuestion) > 0 && strlen($newAnswer) > 0) {
-                        $stmt = $pdo->prepare("INSERT INTO questions (question, answer, answers) VALUES (?, ?, ?)");
-                        $stmt->execute([$newQuestion, $newAnswer, 0]);
-                        logAction($pdo, "Question Added: " . $newQuestion, 'info', $_SESSION['user_id'], $_SESSION['username']);
-                        $Message = "✅ השאלה נוספה בהצלחה.";
-                    } else {
-                        $Message = "❌ אנא ספק שאלה וגם תשובה.";
+                        if (strlen($newQuestion) > 0 && strlen($newAnswer) > 0) {
+                            $stmt = $pdo->prepare("INSERT INTO questions (question, answer, answers) VALUES (?, ?, ?)");
+                            $stmt->execute([$newQuestion, $newAnswer, 0]);
+                            logAction($pdo, "Question Added: " . $newQuestion, 'info', $_SESSION['user_id'], $_SESSION['username']);
+                            $Message = "✅ השאלה נוספה בהצלחה.";
+                        } else {
+                            $Message = "❌ אנא ספק שאלה וגם תשובה.";
+                        }
                     }
                 }
 
                 // Edit existing question
                 if (isset($_POST['edit_question'], $_POST['question_id'], $_POST['updated_question'], $_POST['updated_answer'])) {
-                    $questionId = (int)$_POST['question_id'];
-                    $updatedQuestion = trim($_POST['updated_question']);
-                    $updatedAnswer = trim($_POST['updated_answer']);
-                    logAction($pdo, "Question ID " . $questionId . " Edited", 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    if(is_array($_POST['edit_question']) || is_array($_POST['question_id']) || is_array($_POST['updated_question']), is_array($_POST['updated_answer']))
+                    {
+                        $Message "❌ אינך יכול להכניס מערך";
+                        logAction($pdo, "Question edit as ARRAY try", 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    }
+                    else
+                    {
+                        $questionId = (int)$_POST['question_id'];
+                        $updatedQuestion = trim($_POST['updated_question']);
+                        $updatedAnswer = trim($_POST['updated_answer']);
+                        logAction($pdo, "Question ID " . $questionId . " Edited", 'info', $_SESSION['user_id'], $_SESSION['username']);
 
-                    if (strlen($updatedQuestion) > 0 && strlen($updatedAnswer) > 0) {
-                        $stmt = $pdo->prepare("UPDATE questions SET question = ?, answer = ? WHERE id = ?");
-                        $stmt->execute([$updatedQuestion, $updatedAnswer, $questionId]);
-                        $Message = "✅ השאלה עודכנה בהצלחה";
-                    } else {
-                        $Message = "❌ אנא רשום גם שאלה וגם תשובה על מנת לעדכן";
+                        if (strlen($updatedQuestion) > 0 && strlen($updatedAnswer) > 0) {
+                            $stmt = $pdo->prepare("UPDATE questions SET question = ?, answer = ? WHERE id = ?");
+                            $stmt->execute([$updatedQuestion, $updatedAnswer, $questionId]);
+                            $Message = "✅ השאלה עודכנה בהצלחה";
+                        } else {
+                            $Message = "❌ אנא רשום גם שאלה וגם תשובה על מנת לעדכן";
+                        }
                     }
                 }
 
@@ -322,33 +345,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Delete user
                 if (isset($_POST['delete_user'], $_POST['user_id'])) {
-                    $userId = (int)$_POST['user_id'];
-                    $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
-                    $stmt->execute([$userId]);
-                    $Message = "✅ המשתמש נמחק בהצלחה";
-                    logAction($pdo, "User ID " . $userId . " Deleted", 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    if(is_array($_POST['delete_user']) || is_array($_POST['user_id']))
+                    {
+                        $Message "❌ אינך יכול להכניס מערך ";
+                        logAction($pdo, "Deleting user as ARRAY detected" . $_POST['user_id'], 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    }
+                    else {
+                        $userId = (int)$_POST['user_id'];
+                        $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+                        $stmt->execute([$userId]);
+                        $Message = "✅ המשתמש נמחק בהצלחה";
+                        logAction($pdo, "User ID " . $userId . " Deleted", 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    }
                 }
 
                 // Edit user details
                 if (isset($_POST['edit_user'], $_POST['user_id'], $_POST['updated_username'], $_POST['updated_user_note'], $_POST['updated_score'], $_POST['updated_is_admin'])) {
-                    $userId = (int)$_POST['user_id'];
-                    $updatedUsername = trim($_POST['updated_username']);
-                    $updatedUserNote = trim($_POST['updated_user_note']);
-                    $updatedScore = (int)$_POST['updated_score'];
-                    $updatedIsAdmin = isset($_POST['updated_is_admin']) ? 1 : 0;
+                    if(is_array($_POST['edit_user']) || is_array($_POST['user_id']) || is_array($_POST['updated_username']) || is_array($_POST['updated_user_note']) || is_array($_POST['updated_score']) || is_array($_POST['updated_is_admin']))
+                    {
+                        $Message "❌ אינך יכול להכניס מערך ";
+                        logAction($pdo, "Edit user as ARRAY detected" . $_POST['user_id'], 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    }
+                    else {
+                        $userId = (int)$_POST['user_id'];
+                        $updatedUsername = trim($_POST['updated_username']);
+                        $updatedUserNote = trim($_POST['updated_user_note']);
+                        $updatedScore = (int)$_POST['updated_score'];
+                        $updatedIsAdmin = isset($_POST['updated_is_admin']) ? 1 : 0;
 
-                    if (strlen($updatedUsername) > 0) {
-                        $stmt = $pdo->prepare("UPDATE users SET username = ?, user_note = ?, score = ?, is_admin = ? WHERE id = ?");
-                        $stmt->execute([$updatedUsername, $updatedUserNote, $updatedScore, $updatedIsAdmin, $userId]);
-                        logAction($pdo, "User ID " . $userId . " updated", 'info', $_SESSION['user_id'], $_SESSION['username']);
-                        $Message = "✅ המשתמש עודכן בהצלחה";
-                    } else {
-                        $Message = "❌ קלט שגוי, אנא בדוק שנית מה הכנסת";
+                        if (strlen($updatedUsername) > 0) {
+                            $stmt = $pdo->prepare("UPDATE users SET username = ?, user_note = ?, score = ?, is_admin = ? WHERE id = ?");
+                            $stmt->execute([$updatedUsername, $updatedUserNote, $updatedScore, $updatedIsAdmin, $userId]);
+                            logAction($pdo, "User ID " . $userId . " updated", 'info', $_SESSION['user_id'], $_SESSION['username']);
+                            $Message = "✅ המשתמש עודכן בהצלחה";
+                        } else {
+                            $Message = "❌ קלט שגוי, אנא בדוק שנית מה הכנסת";
+                        }
                     }
                 }
 
                 $logs_per_page = 200; // Number of logs per page
-                $page = isset($_POST['page']) ? (int)$_POST['page'] : 1; // Get the current page (default to 1 if not set)
+                if (isset($_POST['page']) && is_array($_POST['page'])) {
+                    logAction($pdo, "Load logs as ARRAY detected", 'info', $_SESSION['user_id'], $_SESSION['username']);
+                    $page = 1;
+                } else {
+                    $page = isset($_POST['page']) ? (int)$_POST['page'] : 1;
+                }
                 $offset = ($page - 1) * $logs_per_page; // Calculate the offset
 
                 // Fetch logs from the database
