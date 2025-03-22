@@ -3,10 +3,6 @@ session_start();
 require 'db.php'; // Database connection
 header("Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests");
 
-
-
-
-
 // CSRF Token Generation and Validation
 function generateCsrfToken(): string {
     return $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
@@ -25,58 +21,83 @@ function verifyCsrfToken(string|array $csrfToken): bool {
 
 // Ensure required tables exist
 function ensureTablesExist(PDO $pdo): void {
-    $queries = [
-        "CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(255) UNIQUE,
-            password VARCHAR(255),
-            user_note VARCHAR(255),
-            token VARCHAR(64),
-            score INT DEFAULT 0,
-            answered_questions TEXT, 
-            invited_by TEXT, 
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_admin TINYINT(1) DEFAULT 0 
-        );",
-        "CREATE TABLE IF NOT EXISTS questions (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            question TEXT,
-            answer VARCHAR(255),
-            answers INT DEFAULT 0
-        )",
-        "CREATE TABLE IF NOT EXISTS logs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            error_message TEXT,
-            error_type VARCHAR(50),
-            user_ip VARCHAR(255),
-            user_agent TEXT,
-            user_id INT,
-            username VARCHAR(255),
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )"
+    $tables = [
+        "users" => [
+            "id INT AUTO_INCREMENT PRIMARY KEY",
+            "username VARCHAR(255) UNIQUE",
+            "password VARCHAR(255)",
+            "user_note VARCHAR(255)",
+            "token VARCHAR(64)",
+            "score INT DEFAULT 0",
+            "answered_questions TEXT",
+            "invited_by TEXT",
+            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "is_admin TINYINT(1) DEFAULT 0"
+        ],
+        "questions" => [
+            "id INT AUTO_INCREMENT PRIMARY KEY",
+            "question TEXT",
+            "answer VARCHAR(255)",
+            "answers INT DEFAULT 0"
+        ],
+        "logs" => [
+            "id INT AUTO_INCREMENT PRIMARY KEY",
+            "error_message TEXT",
+            "error_type VARCHAR(50)",
+            "user_ip VARCHAR(255)",
+            "user_agent TEXT",
+            "user_id INT",
+            "username VARCHAR(255)",
+            "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ]
     ];
 
-    foreach ($queries as $query) {
+    foreach ($tables as $table => $columns) {
+        // Ensure the table exists
+        $createTableQuery = "CREATE TABLE IF NOT EXISTS $table (" . implode(", ", $columns) . ");";
         try {
-            $pdo->exec($query);
+            $pdo->exec($createTableQuery);
         } catch (Exception $e) {
-            logAction($pdo, "Database error: " . $e->getMessage(), 'Database Error');
+            logAction($pdo, "Database error (table creation): " . $e->getMessage(), 'Database Error');
+        }
+
+        // Check for missing columns and add them
+        $existingColumns = [];
+        try {
+            $stmt = $pdo->query("SHOW COLUMNS FROM $table");
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $existingColumns[] = $row['Field'];
+            }
+        } catch (Exception $e) {
+            logAction($pdo, "Database error (fetch columns): " . $e->getMessage(), 'Database Error');
+            continue;
+        }
+
+        foreach ($columns as $columnDefinition) {
+            preg_match('/^(\w+)/', $columnDefinition, $matches);
+            if (!in_array($matches[1], $existingColumns)) {
+                try {
+                    $pdo->exec("ALTER TABLE $table ADD COLUMN $columnDefinition;");
+                } catch (Exception $e) {
+                    logAction($pdo, "Database error (alter table $table): " . $e->getMessage(), 'Database Error');
+                }
+            }
         }
     }
 
-    // Check if the 'DanielSparta' user exists, if not, create it
+    // Ensure the 'DanielSparta' user exists
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
     $stmt->execute(['DanielSparta']);
     $userCount = $stmt->fetchColumn();
 
     if ($userCount == 0) {
-        // Insert the default admin user 'DanielSparta'
-        $adminPassword = '$2y$10$CCdYXEDGO2SFuT7OGe6j9uF8.VuAzJU2CCd1nJoAQOqt89Sj5BmA2'; // The hashed password
-        $adminToken = bin2hex(random_bytes(32)); // Generate a unique token for the user
+        $adminPassword = '$2y$10$CCdYXEDGO2SFuT7OGe6j9uF8.VuAzJU2CCd1nJoAQOqt89Sj5BmA2'; // Hashed password
+        $adminToken = bin2hex(random_bytes(32)); // Unique token
         $stmt = $pdo->prepare("INSERT INTO users (username, password, token, is_admin, user_note) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute(['DanielSparta', $adminPassword, $adminToken, 1, 'Admin account created']);
     }
 }
+
 ensureTablesExist($pdo);
 
 // Log actions and errors

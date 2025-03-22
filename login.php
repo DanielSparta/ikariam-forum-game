@@ -2,9 +2,6 @@
 session_start();
 header("Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests");
 
-
-
-
 /**
  * Database Configuration
  */
@@ -17,6 +14,8 @@ class Database {
         if ($this->conn->connect_error) {
             die("Database connection failed: " . $this->conn->connect_error);
         }
+
+        $this->conn->set_charset("utf8mb4");
     }
     public function getConnection(): mysqli {
         return $this->conn;
