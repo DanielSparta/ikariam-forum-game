@@ -113,13 +113,13 @@ function isRequestAllowed(): bool {
     $ip = $_SERVER['REMOTE_ADDR'];
     $currentTime = time();
     
-    if (!isset($_SESSION['last_request_time']) || $currentTime - $_SESSION['last_request_time'] >= 10) {
+    if (!isset($_SESSION['last_request_time']) || $currentTime - $_SESSION['last_request_time'] >= 20) {
         $_SESSION['last_request_time'] = $currentTime;
     } else {
         return false;
     }
     
-    if (!isset($_SESSION['request_ips'][$ip]) || $currentTime - $_SESSION['request_ips'][$ip] >= 10) {
+    if (!isset($_SESSION['request_ips'][$ip]) || $currentTime - $_SESSION['request_ips'][$ip] >= 20) {
         $_SESSION['request_ips'][$ip] = $currentTime;
         return true;
     }
@@ -224,15 +224,23 @@ logAction($pdo, "User entered site", 'info', $_SESSION['user_id'], $_SESSION['us
 $scoreboardArray = fetchScoreboard($pdo);
 
 $csrf_error = "";
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$Message = "";
+
+foreach ($_REQUEST as $key => $value) {
+    if (is_array($value)) {
+        //Need to fix that this message is not going into user output
+        $Message = "❌ אינך יכול להכניס מערך להערת משתמש";
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $Message === "") {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
-        $csrf_error = "❌ שגיאה: csrf token לא תואם, אנא נסה שוב. ❌";
+        $csrf_error = "csrf token לא תואם, אנא נסה שוב. <br>לחץ על הקישור הבא על מנת לסדר את הבעיה: <a href='https://ikaforum.servegame.com/index.php'>לחץ עליי</a>✅";
     }
 
     if (empty($csrf_error)) {
         $_SESSION['stage'] = $_SESSION['stage'] ?? 'welcome_page';
         $answeredQuestions = json_decode($user['answered_questions'] ?? '[]', true) ?: [];
-        $Message = "";
 
         if (isset($_POST['admin_panel']) && $user['is_admin']) {
             $_SESSION['stage'] = 'admin_panel';
@@ -271,7 +279,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $password = $_POST['psswrd'];
 
             if (!isRequestAllowed()) {
-                $Message = "❌ שגיאה: יש להמתין 10 שניות בין כל ניסיון.";
+                $Message = "❌ שגיאה: יש להמתין 20 שניות בין כל ניסיון.";
                 logAction($pdo, "Login Request rate limit exceeded for: {$username}", "info");
             } else {
                 $stmt = $pdo->prepare("SELECT id, username, password FROM users WHERE username = ?");
@@ -347,6 +355,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if(is_array($_POST['answer']))
                     {
                         $Message = "אינך יכול להגיש תשובה כמערך";
+                        logAction($pdo, "Question Request rate limit exceeded for: {$_SESSION['username']}", "info");
+                    }
+                    elseif (!isRequestAllowed()) {
+                        $Message = "❌ שגיאה: יש להמתין 20 שניות בין כל ניסיון.";
+                        logAction($pdo, "Question Request rate limit exceeded for: {$_SESSION['username']}", "info");
+                    }
+                    elseif (strlen($_POST['answer']) > 18) {
+                        $Message = "❌ אינך יכול להכניס תשובה שגדולה מ18 תווים.";
+                        logAction($pdo, "Question > 18 charecters answer try: {$_SESSION['username']}", "info");
                     }
                     else
                     {
@@ -358,29 +375,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $answeredQuestions[] = $currentQuestion['id'];
                                 $stmt = $pdo->prepare("UPDATE users SET score = score + 10, answered_questions = ? WHERE token = ?");
                                 $stmt->execute([json_encode($answeredQuestions), $authToken]);
-                            }
-                            logAction($pdo, "Correct answer to question {$currentQuestion['id']}", 'info', $user['id'], $user['username']);
-                            $Message = "✅ תשובה נכונה";
-                            //new bonus points feature
-                            $stmt = $pdo->query("SELECT answers FROM questions WHERE id=" . $currentQuestion['id']);
-                            $answers = (int) $stmt->fetchColumn();
+                                logAction($pdo, "Correct answer to question {$currentQuestion['id']}", 'info', $user['id'], $user['username']);
+                                $Message = "✅ תשובה נכונה";
+                                //new bonus points feature
+                                $stmt = $pdo->query("SELECT answers FROM questions WHERE id=" . $currentQuestion['id']);
+                                $answers = (int) $stmt->fetchColumn();
 
-                            $positions = [
-                                0 => "✅ תשובה נכונה - אתה הראשון שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
-                                1 => "✅ תשובה נכונה - אתה השני שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
-                                2 => "✅ תשובה נכונה - אתה השלישי שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
-                            ];
+                                $positions = [
+                                    0 => "✅ תשובה נכונה - אתה הראשון שפתר את השאלה הזאת! ולכן אתה מקבל בונוס נקודה אחת",
+                                ];
 
-                            if (isset($positions[$answers])) {
-                                $Message = $positions[$answers];
-                                $stmt = $pdo->prepare("UPDATE users SET score = score + 1, answered_questions = ? WHERE token = ?");
-                                $stmt->execute([json_encode($answeredQuestions), $authToken]);
+                                if (isset($positions[$answers])) {
+                                    $Message = $positions[$answers];
+                                    $stmt = $pdo->prepare("UPDATE users SET score = score + 1, answered_questions = ? WHERE token = ?");
+                                    $stmt->execute([json_encode($answeredQuestions), $authToken]);
+                                }
+                                //feature that shows the users how many users answers that question
+                                $stmt = $pdo->query("UPDATE questions SET answers=answers+1 WHERE id=" . $currentQuestion['id']);
+                                $_SESSION['question'] = fetchRandomQuestion($pdo, $answeredQuestions);
+                                $_SESSION['stage'] = $_SESSION['question'] ? 'question' : 'final';
+                                $scoreboardArray = fetchScoreboard($pdo);
                             }
-                            //feature that shows the users how many users answers that question
-                            $stmt = $pdo->query("UPDATE questions SET answers=answers+1 WHERE id=" . $currentQuestion['id']);
-                            $_SESSION['question'] = fetchRandomQuestion($pdo, $answeredQuestions);
-                            $_SESSION['stage'] = $_SESSION['question'] ? 'question' : 'final';
-                            $scoreboardArray = fetchScoreboard($pdo);
+                            else
+                                $Message = "❌ כבר ענית על שאלה זו";
                         } else {
                             $Message = "❌ תשובה שגויה";
                         }

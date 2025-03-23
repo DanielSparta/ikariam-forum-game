@@ -231,6 +231,7 @@
             <h1>אתגר חדר הבריחה</h1>
             <p> ברוכים הבאים לחדר הבריחה של פורום איקרים! כאן תמצאו חידות ושאלות, חלקן קשורות למשחק, וחלקן לא. החידות לא בהכרח מצריכות ידע קודם במשחק! המטרה שלכם היא לענות על כמה שיותר חידות ושאלות, ובכך להשיג כמות ניקוד גבוהה יותר משל שאר המשתתפים! מי יתגלה כפותר החידות הטוב ביותר?</p>
             <p><b>🏆 3 השחקנים המובילים יזכו בקופוני אמברוסיה שווים! 🏆</b></p>
+            <p><b>בכל רגע נתון, גם יום לפני סיום התחרות, כל שחקן יכול להגיע למיקום הראשון.</b></p>
             <p>🔥 שאלות חדשות מדי יום 🔥</p>
             <br>
             <hr>
@@ -291,6 +292,8 @@
                 <button type="submit" name="replace_question">🔄 החלף שאלה</button>
             </form>
 
+            <h4>בדיקה שגויה לא מורידה ניקוד, והחלפת שאלה אינה מוחקת את השאלה מהמשתמש שלכם.</h4>
+
             <?php if (!empty($Message)): ?>
                 <p class="<?= str_starts_with($Message, '✅') ? 'correct' : 'error' ?>"> <?= $Message ?> </p>
         <?php endif; ?>
@@ -298,7 +301,8 @@
         <?php elseif (isset($_SESSION['stage']) && $_SESSION['stage'] === 'final'): ?>
             <?php $_SESSION['stage'] = "welcome_page"; ?>
             <h1>🎉 הודעת מערכת</h1>
-            <p>כל הכבוד! ענית על כל השאלות הקיימות במאגר. המשך להתאמן, כי שאלות חדשות יתווספו בהמשך!</p>
+            <p>כל הכבוד! ענית על כל השאלות הקיימות במאגר. המשך להתאמן, כי שאלות חדשות יתווספו בהמשך!<br>צלם את מסך זה לפוסט בפורום המשחק! https://forum.ikariam.gameforge.com/forum/thread/107762</p>
+            <p><br>זכור שהפעילות נמשכת 30 ימים, והמערכת בנויה באופן כזה שלכל אחד יש סיכוי להגיע להיות מקום ראשון עד שהפעילות תסתיים - כל הזמן מתווספות שאלות חדשות. בונוס של נקודות בודדות לא יהיו מה שינצח את הפעילות בסופו של דבר, וגם לקראת סוף הפעילות יהיו דברים שוברי שוויון. <br><h1><b>האם תצליח לשמור על הרצף שלך?</b></h1></p>
             <button onclick="window.location.href = 'index.php'" type="submit">🔄 חזור למסך הבית</button>
         <?php endif; ?>
         
@@ -306,7 +310,7 @@
             if (isset($_SESSION['show_popup'])): 
                 $stmt = $pdo->query("SELECT id, message, timestamp FROM broadcast_message ORDER BY timestamp DESC");
                 $broadcast_messages = $stmt->fetchAll(PDO::FETCH_ASSOC); 
-                if (@$broadcast_messages[0]): 
+                if (isset($broadcast_messages[0]) && $broadcast_messages[0]):
         ?>
                     <div id="popup-overlay" class="popup-overlay">
                         <div id="popup" class="popup">
@@ -387,7 +391,7 @@
         text-align: center;
         animation: popupFadeIn 0.6s ease-out;
         transform: scale(0.95);
-        margin-top: 400px; /* Adjust margin to create space from the top */
+        margin-top: 150px; /* Adjust margin to create space from the top */
     }
 
     /* Fade-in animation */
