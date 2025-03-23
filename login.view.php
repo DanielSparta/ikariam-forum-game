@@ -224,8 +224,8 @@
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <button name="login" type="submit">התחבר/הרשם</button>
             </form>
-            <?php if (!empty($error)): ?>
-                <p class="error"><?= htmlspecialchars($error) ?></p>
+            <?php if (!empty($Message)): ?>
+                <p class="error"><?= htmlspecialchars($Message) ?></p>
             <?php endif; ?>
         <?php else: ?>
             <?php if (isset($_SESSION['show_invited_by'])): ?>

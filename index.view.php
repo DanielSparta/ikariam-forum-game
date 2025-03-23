@@ -250,7 +250,7 @@
                     <p>קישור לפוסט הפעילות בפורום איקרים ישראל: <a href="https://forum.ikariam.gameforge.com/forum/thread/107762">https://forum.ikariam.gameforge.com/forum/thread/107762</a></p>
                 </form>
             <?php else: ?>
-                <form method="post">
+                <form method="post" action=login.php>
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                     <button type="submit">🔑 הרשם / התחבר</button>
                     <hr>
@@ -290,10 +290,7 @@
             <h1>🎉 הודעת מערכת</h1>
             <p>כל הכבוד! ענית על כל השאלות הקיימות במאגר. המשך להתאמן, כי שאלות חדשות יתווספו בהמשך!</p>
             <p>💎 ניקודך: <strong><?= $_SESSION['score'] ?></strong></p>
-            <form method="POST">
-                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                <button type="submit">🔄 חזור למסך הבית</button>
-            </form>
+            <button onclick="window.location.href = 'index.php'" type="submit">🔄 חזור למסך הבית</button>
         <?php endif; ?>
 
         <?php if (isset($_SESSION['stage']) && $_SESSION['stage'] === 'settings'): ?>
@@ -305,10 +302,7 @@
                 <button type="submit">שמור פתק משתמש</button>
             </form>
             <hr>
-            <form method="POST">
-                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                <button name="set_homepage" type="submit">🔄 חזור למסך הבית</button>
-            </form>
+            <button onclick="window.location.href = 'index.php'" type="submit">🔄 חזור למסך הבית</button>
             <hr>
             <?php if (!empty($Message)): ?>
                 <p class="<?= str_starts_with($Message, '✅') ? 'correct' : 'error' ?>"> <?= $Message ?> </p>
@@ -482,10 +476,7 @@
 </div>
 
 
-        <form method="post" style="text-align: center;">
-            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-            <button type="submit" name="set_homepage" style="background-color: #95a5a6; color: white; padding: 10px 20px; border: none; cursor: pointer;">חזור למסך הבית</button>
-        </form>
+        <button onclick="window.location.href = 'index.php'" type="submit" style="background-color: #95a5a6; color: white; padding: 10px 20px; border: none; cursor: pointer;">🔄 חזור למסך הבית</button>
     </div>
 
     <script>
