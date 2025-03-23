@@ -49,6 +49,12 @@ function ensureTablesExist(PDO $pdo): void {
             "user_id INT",
             "username VARCHAR(255)",
             "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ],
+        "broadcast_message" =>
+        [
+            "id INT AUTO_INCREMENT PRIMARY KEY",
+            "message TEXT",
+            "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
         ]
     ];
 
@@ -503,8 +509,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         $page = isset($_POST['page']) ? (int)$_POST['page'] : 1;
                     }
-                    $offset = ($page - 1) * $logs_per_page; // Calculate the offset
 
+                    // Calculate the offse
+                    $offset = ($page - 1) * $logs_per_page;
                     // Fetch logs from the database
                     $query = "SELECT error_type, error_message, user_ip, username, timestamp FROM logs ORDER BY id DESC LIMIT :limit OFFSET :offset";
                     $stmt = $pdo->prepare($query);
@@ -517,6 +524,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt = $pdo->query("SELECT COUNT(*) FROM logs");
                     $totalLogs = $stmt->fetchColumn();
                     $totalPages = ceil($totalLogs / $logs_per_page);
+
+                    if(isset($_POST['delete_broadcast_message']))
+                    {
+                        $stmt = $pdo->prepare("DELETE FROM broadcast_message WHERE id = ?");
+                        $stmt->execute([$_POST['broadcast_message_id']]);
+                    }
+
+                    if(isset($_POST['update_broadcast_message']))
+                    {
+                        $stmt = $pdo->prepare("UPDATE broadcast_message SET message = ? WHERE id = ?");
+                        $stmt->execute([$_POST['updated_broadcast_message'], $_POST['broadcast_message_id']]);
+                    }
+
+                    if(isset($_POST['add_broadcast_message']))
+                    {
+                        $stmt = $pdo->prepare("INSERT INTO broadcast_message (message) VALUES (?)");
+                        $stmt->execute([$_POST['new_broadcast_message']]);
+                    }
                 }
                 else{
                     $Message = "❌ אין לך הרשאה לביצוע פעולה זו.";
