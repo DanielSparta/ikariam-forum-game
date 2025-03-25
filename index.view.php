@@ -22,7 +22,7 @@
 
         /* Body Styling */
         body {
-            background: url('/background.png') no-repeat center center fixed;
+            background: url('background.png') no-repeat center center fixed;
             background-size: cover;
             font-family: 'Heebo', sans-serif;
             text-align: center;
@@ -226,7 +226,7 @@
 
 <body>
     <div dir="rtl" class="container">
-    <img src="/newsteam.png" style="max-width: 90%; height: auto;">
+    <img src="newsteam.png" style="max-width: 90%; height: auto;">
         <?php if (isset($_SESSION['stage']) && $_SESSION['stage'] === 'welcome_page'): ?>
             <h1>אתגר חדר הבריחה</h1>
             <p> ברוכים הבאים לחדר הבריחה של פורום איקרים! כאן תמצאו חידות ושאלות, חלקן קשורות למשחק, וחלקן לא. החידות לא בהכרח מצריכות ידע קודם במשחק! המטרה שלכם היא לענות על כמה שיותר חידות ושאלות, ובכך להשיג כמות ניקוד גבוהה יותר משל שאר המשתתפים! מי יתגלה כפותר החידות הטוב ביותר?</p>
@@ -241,6 +241,13 @@
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                     <button name="login" type="submit">🔓 התחל</button>
                 </form>
+                <?php if (isset($_SESSION['HangmanEventAvailable'])): ?>
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                        <button name="hangman" type="submit">😵 איוונט איש תלוי 😵 - זמני!</button>
+                    </form>
+                <?php endif; ?>
+
                 <form method="post">
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                     <button name="settings" type="submit">⚙️ הגדרות</button>
@@ -255,9 +262,9 @@
                         });
                     }
                     </script>
-
                     <p>קישור לפוסט הפעילות בפורום איקרים ישראל: <a href="https://forum.ikariam.gameforge.com/forum/thread/107762">https://forum.ikariam.gameforge.com/forum/thread/107762</a></p>
                 </form>
+
             <?php else: ?>
                 <form method="post" action=login.php>
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
@@ -303,6 +310,33 @@
             <h1>🎉 הודעת מערכת</h1>
             <p>כל הכבוד! ענית על כל השאלות הקיימות במאגר. המשך להתאמן, כי שאלות חדשות יתווספו בהמשך!<br>צלם את מסך זה לפוסט בפורום המשחק! https://forum.ikariam.gameforge.com/forum/thread/107762</p>
             <p><br>זכור שהפעילות נמשכת 30 ימים, והמערכת בנויה באופן כזה שלכל אחד יש סיכוי להגיע להיות מקום ראשון עד שהפעילות תסתיים - כל הזמן מתווספות שאלות חדשות. בונוס של נקודות בודדות לא יהיו מה שינצח את הפעילות בסופו של דבר, וגם לקראת סוף הפעילות יהיו דברים שוברי שוויון. <br><h1><b>האם תצליח לשמור על הרצף שלך?</b></h1></p>
+            <button onclick="window.location.href = 'index.php'" type="submit">🔄 חזור למסך הבית</button>
+
+        <?php elseif (isset($_SESSION['stage']) && $_SESSION['stage'] === 'hangman'): ?>
+            <h1>😵 איוונט איש תלוי 😵</h1>
+            <p><h2>ברוכים הבאים לאיוונט איש תלוי! </h2>מדובר בפעילות זמנית שוברת שוויון. כיצד הפעילות תתנהל?</p>
+            <li>כל משתמש מקבל 3 מילים שהוא יצטרך לנחש באיש תלוי</li>
+            <li>לכל משתמש יש 12 ניסיונות בלבד לניחוש אותיות!</li>
+            <li>על כל מילה נכונה שתצליחו לנחש - תזכו ב5 נקודות.</li>
+            <li>המצב של האיש תלוי שלכם נשמר, זאת אומרת שאתם יכולים לצאת מהאתר ולהמשיך בפעם הבאה שתכנסו</li>
+            <li>אתם מקבלים 3 </li>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                <button type="submit" name="start_hangman">בואו נתחיל</button>
+            </form>
+            <button onclick="window.location.href = 'index.php'" type="submit">🔄 חזור למסך הבית</button>
+
+        <?php elseif (isset($_SESSION['stage']) && $_SESSION['stage'] === 'start_hangman'): ?>
+            <h1>😵 איוונט איש תלוי 😵</h1s>
+            <h3>תכירו את מוטי, הוא יהיה האיש תלוי שלכם</h3>
+            <h3>מספר טעויות שנשארו: </h3>
+            <img src="moti0.png">
+            
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                <input type="text" maxlength=1 name="guess_hangman" value="">
+                <button type="submit" name="submit_hangman">בדוק</button>
+            </form>
             <button onclick="window.location.href = 'index.php'" type="submit">🔄 חזור למסך הבית</button>
         <?php endif; ?>
         
@@ -497,6 +531,7 @@
                     <button onclick="showSection('users')" class="tab-btn">ניהול משתמשים</button>
                     <button onclick="showSection('logs')" class="tab-btn">ניהול לוגים</button>
                     <button onclick="showSection('broadcast')" class="tab-btn">הודעות מערכת</button>
+                    <button onclick="showSection('hangman')" class="tab-btn">איש תלוי</button>
                 </div>
 
                 <!-- Content Sections -->
@@ -701,6 +736,59 @@
                         </form>
                     </div>
                 </div>
+
+
+                <div id="hangman" class="admin-section">
+                    <h2 style="text-align: center;">ניהול איש תלוי</h2>
+                    <div style="padding: 20px;">
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>word</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php 
+                                    $stmt = $pdo->query("SELECT id, word FROM hangman_event_words");
+                                    $broadcast_messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                ?>
+                                <?php foreach ($broadcast_messages as $data): ?>
+                                    <tr>
+                                    <td><?= $data['id'] ?? 'null' ?></td>
+                                    <td><?= $data['word'] ?? 'null' ?></td>
+                                        <td>
+                                            <!-- Edit and Delete Actions -->
+                                            <form method="post" style="display: inline-block;">
+                                                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                                                <input type="hidden" name="hangman_word_id" value="<?= $data['id'] ?>">
+                                                <button type="submit" name="delete_hangman_word" style="background-color: #e74c3c; color: white; padding: 5px 10px; border: none; cursor: pointer;">מחק</button>
+                                            </form>
+                                            <button onclick="toggleEditBroadcastForm(<?= $data['id'] ?>)" class="edit-btn" style="background-color: #e74c3c; color: white; padding: 5px 10px; border: none; cursor: pointer;">ערוך</button>
+                                            
+                                            <!-- Edit Form -->
+                                            <div id="edit-hangman-<?= $data['id'] ?>" style="display: none; margin-top: 10px;">
+                                                <form method="post">
+                                                    <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                                                    <input type="hidden" name="hangman_word_id" value="<?= $data['id'] ?>">
+                                                    <input type="text" name="update_hangman_word" placeholder="Edit message" value="<?= htmlspecialchars($data['word']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                                                    <button type="submit" name="update_hangman" style="background-color: #2ecc71; color: white; padding: 10px; border: none; cursor: pointer;">עדכן</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+
+                        <h3>הוסף מילה לאיש תלוי</h3>
+                        <form method="post">
+                            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                            <input type="text" name="new_hangman_word" placeholder="רשום מילה לאיש תלוי" required style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                            <button type="submit" name="add_hangman_word" style="background-color: #3498db; color: white; padding: 10px; border: none; cursor: pointer;">הוסף הודעה</button>
+                        </form>
+                    </div>
+                </div>
             </div>
         <button onclick="window.location.href = 'index.php'" type="submit" style="background-color: #95a5a6; color: white; padding: 10px 20px; border: none; cursor: pointer;">🔄 חזור למסך הבית</button>
 
@@ -729,6 +817,11 @@
         // Function to toggle the visibility of the edit broadcast_message form
         function toggleEditBroadcastForm(userId) {
             const form = document.getElementById('edit-broadcast-' + userId);
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function toggleEditBroadcastForm(userId) {
+            const form = document.getElementById('edit-hangman-' + userId);
             form.style.display = form.style.display === 'none' ? 'block' : 'none';
         }
     </script>

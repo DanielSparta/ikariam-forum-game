@@ -8,6 +8,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 if ($isAuthenticated)
     $_SESSION['show_popup'] = '';
 
+#Feature for upcoming hangman event
+if (isset($_GET['gethangmandebug']) && $user['is_admin'])
+    $_SESSION['HangmanEventAvailable'] = '';
+
 include 'index.view.php';
 
 ?>

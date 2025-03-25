@@ -22,7 +22,7 @@
 
         /* Body Styling */
         body {
-            background: url('/background.png') no-repeat center center fixed;
+            background: url('background.png') no-repeat center center fixed;
             background-size: cover;
             font-family: 'Heebo', sans-serif;
             text-align: center;
@@ -210,7 +210,7 @@
 </head>
 <body>
     <div dir="rtl" class="container">
-        <img src="/newsteam.png" style="max-width: 90%; height: auto;">
+        <img src="newsteam.png" style="max-width: 90%; height: auto;">
         
         <?php if (!isset($_SESSION['is_registred'])): ?>
             <h1 dir="rtl">מסך הרשמה/התחברות</h1>

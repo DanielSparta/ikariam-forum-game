@@ -55,6 +55,21 @@ function ensureTablesExist(PDO $pdo): void {
             "id INT AUTO_INCREMENT PRIMARY KEY",
             "message TEXT",
             "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        ],
+        "hangman_event_words" =>
+        [
+            "id INT AUTO_INCREMENT PRIMARY KEY",
+            "word TEXT",
+        ],
+        "hangman_event_user_state" =>
+        [
+            "id INT AUTO_INCREMENT PRIMARY KEY",
+            "user_id INT NOT NULL",
+            "current_word TEXT",
+            "used_charecters TEXT",
+            "remain_guesses INT NOT NULL",
+            "remaining_words TEXT",
+            "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
         ]
     ];
 
@@ -248,6 +263,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $Message === "") {
 
         if (isset($_POST['settings']))
             $_SESSION['stage'] = "settings";
+
+        if (isset($_POST['hangman']))
+            $_SESSION['stage'] = "hangman";
+
+        if (isset($_POST['start_hangman']))
+            $_SESSION['stage'] = "start_hangman";
 
         if (isset($_POST['set_homepage']))
             header("Location: index.php");
@@ -558,6 +579,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $Message === "") {
                     {
                         $stmt = $pdo->prepare("INSERT INTO broadcast_message (message) VALUES (?)");
                         $stmt->execute([$_POST['new_broadcast_message']]);
+                    }
+
+                    if(isset($_POST['new_hangman_word']))
+                    {
+                        $stmt = $pdo->prepare("INSERT INTO hangman_event_words (word) VALUES (?)");
+                        $stmt->execute([$_POST['new_hangman_word']]);
                     }
                 }
                 else{
