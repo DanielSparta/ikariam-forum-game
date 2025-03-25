@@ -585,6 +585,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $Message === "") {
                         $stmt = $pdo->prepare("INSERT INTO hangman_event_words (word) VALUES (?)");
                         $stmt->execute([$_POST['new_hangman_word']]);
                     }
+                    // @TODO: adding more hangman features
                 }
                 else{
                     $Message = "❌ אין לך הרשאה לביצוע פעולה זו.";
