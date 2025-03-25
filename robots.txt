@@ -1,4 +1,3 @@
 User-agent: *
-Disallow: /db.php
 
 Sitemap: https://ikaforum.servegame.com/sitemap.xml
