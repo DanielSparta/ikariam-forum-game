@@ -1,7 +1,7 @@
 <?php
 $host = 'localhost';
 $dbname = 'ikariam_quiz';
-$username = 'root';
+$username = 'ubuntu';
 $password = '';
 
 try {

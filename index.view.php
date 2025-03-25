@@ -22,7 +22,7 @@
 
         /* Body Styling */
         body {
-            background: url('background.png') no-repeat center center fixed;
+            background: url('assets/background.png') no-repeat center center fixed;
             background-size: cover;
             font-family: 'Heebo', sans-serif;
             text-align: center;
@@ -226,7 +226,7 @@
 
 <body>
     <div dir="rtl" class="container">
-    <img src="newsteam.png" style="max-width: 90%; height: auto;">
+    <img src="assets/newsteam.png" style="max-width: 90%; height: auto;">
         <?php if (isset($_SESSION['stage']) && $_SESSION['stage'] === 'welcome_page'): ?>
             <h1>אתגר חדר הבריחה</h1>
             <p> ברוכים הבאים לחדר הבריחה של פורום איקרים! כאן תמצאו חידות ושאלות, חלקן קשורות למשחק, וחלקן לא. החידות לא בהכרח מצריכות ידע קודם במשחק! המטרה שלכם היא לענות על כמה שיותר חידות ושאלות, ובכך להשיג כמות ניקוד גבוהה יותר משל שאר המשתתפים! מי יתגלה כפותר החידות הטוב ביותר?</p>

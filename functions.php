@@ -69,7 +69,6 @@ function ensureTablesExist(PDO $pdo): void {
             "used_charecters TEXT",
             "remain_guesses INT NOT NULL",
             "remaining_words TEXT",
-            "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
         ]
     ];
 
