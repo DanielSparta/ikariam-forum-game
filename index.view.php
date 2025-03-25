@@ -263,6 +263,7 @@
                     }
                     </script>
                     <p>קישור לפוסט הפעילות בפורום איקרים ישראל: <a href="https://forum.ikariam.gameforge.com/forum/thread/107762">https://forum.ikariam.gameforge.com/forum/thread/107762</a></p>
+                    <p>הקוד של השרת זמין בגיטהאב - מי שמעוניין לחקור את הקוד מוזמן: https://github.com/DanielSparta/ikariam-forum-game</p>
                 </form>
 
             <?php else: ?>
