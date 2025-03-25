@@ -532,7 +532,7 @@
                     <button onclick="showSection('users')" class="tab-btn">ניהול משתמשים</button>
                     <button onclick="showSection('logs')" class="tab-btn">ניהול לוגים</button>
                     <button onclick="showSection('broadcast')" class="tab-btn">הודעות מערכת</button>
-                    <button onclick="showSection('hangman')" class="tab-btn">איש תלוי</button>
+                    <button onclick="showSection('hangman')" class="tab-btn">איוונט איש תלוי</button>
                 </div>
 
                 <!-- Content Sections -->
