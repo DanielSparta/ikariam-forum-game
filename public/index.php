@@ -1,5 +1,5 @@
 <?php
-require  'functions.php';
+require  'lib/functions.php';
 
 // Initialize game stage
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -12,6 +12,6 @@ if ($isAuthenticated)
 if (isset($_GET['gethangmandebug']) && $user['is_admin'])
     $_SESSION['HangmanEventAvailable'] = '';
 
-include 'index.view.php';
+include 'views/index.view.php';
 
 ?>

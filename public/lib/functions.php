@@ -1,6 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/db.php';
 session_start();
-require 'db.php'; // Database connection
 
 // CSRF Token Generation and Validation
 function generateCsrfToken(): string {

@@ -1,6 +1,5 @@
 <?php
-require 'functions.php';
-require 'db.php'; // Include the database connection
+require 'lib/functions.php';
 
 
 if (isset($_SESSION['username'], $_POST['invited_by'])) {
@@ -18,4 +17,4 @@ if (isset($_SESSION['username'], $_POST['invited_by'])) {
 
 ?>
 
-<?php include 'login.view.php'; ?>
+<?php include 'views/login.view.php'; ?>
