@@ -1,5 +1,6 @@
 <?php
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/db.php'; 
+require_once 'hangman.php';
 session_start();
 
 // CSRF Token Generation and Validation
@@ -15,107 +16,6 @@ function verifyCsrfToken(string|array $csrfToken): bool {
     $OldCSRFToken = $_SESSION['csrf_token'];
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     return ($OldCSRFToken) === $csrfToken;
-}
-
-
-// Ensure required tables exist
-function ensureTablesExist(PDO $pdo): void {
-    $tables = [
-        "users" => [
-            "id INT AUTO_INCREMENT PRIMARY KEY",
-            "username VARCHAR(255) UNIQUE",
-            "password VARCHAR(255)",
-            "user_note VARCHAR(255)",
-            "token VARCHAR(64)",
-            "score INT DEFAULT 0",
-            "answered_questions TEXT",
-            "invited_by TEXT",
-            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "is_admin TINYINT(1) DEFAULT 0"
-        ],
-        "questions" => [
-            "id INT AUTO_INCREMENT PRIMARY KEY",
-            "question TEXT",
-            "answer VARCHAR(255)",
-            "answers INT DEFAULT 0"
-        ],
-        "logs" => [
-            "id INT AUTO_INCREMENT PRIMARY KEY",
-            "error_message TEXT",
-            "error_type VARCHAR(50)",
-            "user_ip VARCHAR(255)",
-            "user_agent TEXT",
-            "referer TEXT",
-            "user_id INT",
-            "username VARCHAR(255)",
-            "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-        ],
-        "broadcast_message" =>
-        [
-            "id INT AUTO_INCREMENT PRIMARY KEY",
-            "message TEXT",
-            "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-        ],
-        "hangman_event_words" =>
-        [
-            "id INT AUTO_INCREMENT PRIMARY KEY",
-            "word TEXT",
-        ],
-        "hangman_event_user_state" =>
-        [
-            "id INT AUTO_INCREMENT PRIMARY KEY",
-            "user_id INT NOT NULL",
-            "current_word TEXT",
-            "used_charecters TEXT",
-            "remain_guesses INT NOT NULL",
-            "remaining_words TEXT",
-        ]
-    ];
-
-    foreach ($tables as $table => $columns) {
-        // Ensure the table exists
-        $createTableQuery = "CREATE TABLE IF NOT EXISTS $table (" . implode(", ", $columns) . ");";
-        try {
-            $pdo->exec($createTableQuery);
-        } catch (Exception $e) {
-            logAction($pdo, "Database error (table creation): " . $e->getMessage(), 'Database Error');
-        }
-
-        // Check for missing columns and add them
-        $existingColumns = [];
-        try {
-            $stmt = $pdo->query("SHOW COLUMNS FROM $table");
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $existingColumns[] = $row['Field'];
-            }
-        } catch (Exception $e) {
-            logAction($pdo, "Database error (fetch columns): " . $e->getMessage(), 'Database Error');
-            continue;
-        }
-
-        foreach ($columns as $columnDefinition) {
-            preg_match('/^(\w+)/', $columnDefinition, $matches);
-            if (!in_array($matches[1], $existingColumns)) {
-                try {
-                    $pdo->exec("ALTER TABLE $table ADD COLUMN $columnDefinition;");
-                } catch (Exception $e) {
-                    logAction($pdo, "Database error (alter table $table): " . $e->getMessage(), 'Database Error');
-                }
-            }
-        }
-    }
-
-    // Ensure the 'DanielSparta' user exists
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
-    $stmt->execute(['DanielSparta']);
-    $userCount = $stmt->fetchColumn();
-
-    if ($userCount == 0) {
-        $adminPassword = '$2y$10$CCdYXEDGO2SFuT7OGe6j9uF8.VuAzJU2CCd1nJoAQOqt89Sj5BmA2'; // Hashed password
-        $adminToken = bin2hex(random_bytes(32)); // Unique token
-        $stmt = $pdo->prepare("INSERT INTO users (username, password, token, is_admin, user_note) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute(['DanielSparta', $adminPassword, $adminToken, 1, 'Admin account created']);
-    }
 }
 
 ensureTablesExist($pdo);
@@ -266,8 +166,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $Message === "") {
         if (isset($_POST['hangman']))
             $_SESSION['stage'] = "hangman";
 
-        if (isset($_POST['start_hangman']))
+        if (isset($_POST['start_hangman'])) {
             $_SESSION['stage'] = "start_hangman";
+            $instance = new Hangman(0, 0, 5, $pdo);
+            $instance->setup_hangman();
+            $current_word_data = $instance->get_current_word_data();
+            $current_word_topic = $current_word_data["word_topic"];
+            $current_word_text = $current_word_data["word"];
+            echo "topic: " . $current_word_topic . "<br>word: " . $current_word_text;
+        }
+
+        if (isset($_POST['']))
 
         if (isset($_POST['set_homepage']))
             header("Location: index.php");
@@ -580,10 +489,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $Message === "") {
                         $stmt->execute([$_POST['new_broadcast_message']]);
                     }
 
-                    if(isset($_POST['new_hangman_word']))
+                    if(isset($_POST['add_hangman_word']))
                     {
-                        $stmt = $pdo->prepare("INSERT INTO hangman_event_words (word) VALUES (?)");
-                        $stmt->execute([$_POST['new_hangman_word']]);
+                        $stmt = $pdo->prepare("INSERT INTO hangman_event_words (word_topic, word) VALUES (?, ?)");
+                        $stmt->execute([$_POST['new_hangman_topic'] , $_POST['new_hangman_word']]);
+                    }
+
+                    if(isset($_POST['delete_hangman_word_id']))
+                    {
+                        $stmt = $pdo->prepare("DELETE FROM hangman_event_words WHERE id = ?");
+                        $stmt->execute([$_POST['delete_hangman_word_id']]);
+                    }
+
+                    if(isset($_POST['update_hangman_word_id']))
+                    {
+                        $stmt = $pdo->prepare("UPDATE hangman_event_words SET word_topic = ?, word = ? WHERE id = ?");
+                        $stmt->execute([$_POST['update_hangman_word_topic'], $_POST['update_hangman_word_text'] ,$_POST['update_hangman_word_id']]);
                     }
                     // @TODO: adding more hangman features
                 }

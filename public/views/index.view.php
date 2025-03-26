@@ -329,7 +329,6 @@
 
         <?php elseif (isset($_SESSION['stage']) && $_SESSION['stage'] === 'start_hangman'): ?>
             <h1>😵 איוונט איש תלוי 😵</h1s>
-            <h3>תכירו את מוטי, הוא יהיה האיש תלוי שלכם</h3>
             <h3>מספר טעויות שנשארו: </h3>
             <img src="moti0.png">
             
@@ -746,23 +745,25 @@
                             <thead>
                                 <tr>
                                     <th>ID</th>
+                                    <th>word_topic</th>
                                     <th>word</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php 
-                                    $stmt = $pdo->query("SELECT id, word FROM hangman_event_words");
+                                    $stmt = $pdo->query("SELECT id, word_topic, word FROM hangman_event_words");
                                     $broadcast_messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 ?>
                                 <?php foreach ($broadcast_messages as $data): ?>
                                     <tr>
                                     <td><?= $data['id'] ?? 'null' ?></td>
+                                    <td><?= $data['word_topic'] ?? 'null' ?></td>
                                     <td><?= $data['word'] ?? 'null' ?></td>
                                         <td>
                                             <!-- Edit and Delete Actions -->
                                             <form method="post" style="display: inline-block;">
                                                 <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                                                <input type="hidden" name="hangman_word_id" value="<?= $data['id'] ?>">
+                                                <input type="hidden" name="delete_hangman_word_id" value="<?= $data['id'] ?>">
                                                 <button type="submit" name="delete_hangman_word" style="background-color: #e74c3c; color: white; padding: 5px 10px; border: none; cursor: pointer;">מחק</button>
                                             </form>
                                             <button onclick="toggleEditBroadcastForm(<?= $data['id'] ?>)" class="edit-btn" style="background-color: #e74c3c; color: white; padding: 5px 10px; border: none; cursor: pointer;">ערוך</button>
@@ -771,8 +772,9 @@
                                             <div id="edit-hangman-<?= $data['id'] ?>" style="display: none; margin-top: 10px;">
                                                 <form method="post">
                                                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                                                    <input type="hidden" name="hangman_word_id" value="<?= $data['id'] ?>">
-                                                    <input type="text" name="update_hangman_word" placeholder="Edit message" value="<?= htmlspecialchars($data['word']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                                                    <input type="hidden" name="update_hangman_word_id" value="<?= $data['id'] ?>">
+                                                    <input type="text" name="update_hangman_word_topic" placeholder="Edit message" value="<?= htmlspecialchars($data['word_topic']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                                                    <input type="text" name="update_hangman_word_text" placeholder="Edit message" value="<?= htmlspecialchars($data['word']) ?>" style="width: 100%; padding: 10px; margin-bottom: 10px;">
                                                     <button type="submit" name="update_hangman" style="background-color: #2ecc71; color: white; padding: 10px; border: none; cursor: pointer;">עדכן</button>
                                                 </form>
                                             </div>
@@ -785,7 +787,8 @@
                         <h3>הוסף מילה לאיש תלוי</h3>
                         <form method="post">
                             <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                            <input type="text" name="new_hangman_word" placeholder="רשום מילה לאיש תלוי" required style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                            <input type="text" name="new_hangman_topic" placeholder="רשום נושא לאיש תלוי" required style="width: 100%; padding: 10px; margin-bottom: 10px;" required>
+                            <input type="text" name="new_hangman_word" placeholder="רשום מילה לאיש תלוי" required style="width: 100%; padding: 10px; margin-bottom: 10px;" required>
                             <button type="submit" name="add_hangman_word" style="background-color: #3498db; color: white; padding: 10px; border: none; cursor: pointer;">הוסף הודעה</button>
                         </form>
                     </div>
