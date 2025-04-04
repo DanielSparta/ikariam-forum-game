@@ -316,11 +316,11 @@
         <?php elseif (isset($_SESSION['stage']) && $_SESSION['stage'] === 'hangman'): ?>
             <h1>😵 איוונט איש תלוי 😵</h1>
             <p><h2>ברוכים הבאים לאיוונט איש תלוי! </h2>מדובר בפעילות זמנית שוברת שוויון. כיצד הפעילות תתנהל?</p>
-            <li>כל משתמש מקבל 3 מילים שהוא יצטרך לנחש באיש תלוי</li>
-            <li>לכל משתמש יש 12 ניסיונות בלבד לניחוש אותיות!</li>
-            <li>על כל מילה נכונה שתצליחו לנחש - תזכו ב5 נקודות.</li>
+            <li>לכל משתמש מוקצה 40 מילים שהוא יצטרך לנחש באיש תלוי</li>
+            <li>לכל משתמש יש 200 ניסיונות ניחוש לסה"כ כל 40 המילים!</li>
+            <li>על כל מילה נכונה שתצליחו לנחש - תזכו ב5 נקודות. 5*40=200 מדובר בכמות ניקוד שוברת שוויון.</li>
+            <li>כל משתמש מקבל 40 מילים ייחודיות עבורו והמערכת בנויה באופן שתזהה ניסיונות רמאות באמצעות ai שמנתח פעולות חשודות</li>
             <li>המצב של האיש תלוי שלכם נשמר, זאת אומרת שאתם יכולים לצאת מהאתר ולהמשיך בפעם הבאה שתכנסו</li>
-            <li>אתם מקבלים 3 </li>
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                 <button type="submit" name="start_hangman">בואו נתחיל</button>
