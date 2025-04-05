@@ -168,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $Message === "") {
 
         if (isset($_POST['start_hangman'])) {
             $_SESSION['stage'] = "start_hangman";
-            $instance = new Hangman(0, 0, 5, $pdo);
+            $instance = new Hangman(0, 200, 40, $pdo);
             $instance->setup_hangman();
             $current_word_data = $instance->get_current_word_data();
             $current_word_topic = $current_word_data["word_topic"];

@@ -33,21 +33,25 @@
                 $this->set_all_words_and_topics_from_db_table();
                 //getting instance $all_db_table_words_and_topics value
                 $words = $this->get_all_words_and_topics_from_db_table();
+                $check_if_there_are_less_than_40_values = count($this->words_per_user);
                 //based on $words_per_user, create a new value $user_words_available with current user topic and its words
-                $user_words_available_keys = array_rand($words, $this->words_per_user);
+                if ($check_if_there_are_less_than_40_values >= 40)
+                    $user_words_available_keys = array_rand($words, $this->words_per_user);
+                else
+                    $user_words_available_keys = $words;
                 $current_word_index_from_available_words = $user_words_available_keys[array_rand($user_words_available_keys)];
                 $user_words_available = array();
                 foreach ($user_words_available_keys as $key) {
+                    #it will append each time $words[$key] into $user_words_available[]
                     $user_words_available[] = $words[$key];
                 }
                 // Insert a new row if no existing state found for the user
                 $stmt = $this->pdo->prepare("INSERT INTO hangman_event_user_state (user_id, current_word_index, used_guesses, maximum_guesses, remaining_words_array) 
                                        VALUES (?, ?, ?, ?, ?)");
-                $maximum_guesses = 60;
-                $stmt->execute([$_SESSION['user_id'], $currenet_word_index_from_available_words, $used_guesses, $maximum_guesses, serialize($user_words_available)]);
+                $stmt->execute([$_SESSION['user_id'], $currenet_word_index_from_available_words, $used_guesses, $this->maximum_guesses, serialize($user_words_available)]);
             } else {
                 $user_words_available = unserialize($userStat["remaining_words_array"]);
-                $this->set_hangman_config($userState["used_guesses"], $userState["maximum_guesses"]);
+                $current_word_index_from_available_words = $userStat["current_word_index"];
             }
             $this->set_user_config($current_word_index_from_available_words, $user_words_available);
         }
@@ -69,7 +73,7 @@
 
         private function set_user_config($current_word_index_from_available_words, $user_words_available)
         {
-            $this->current_word_text_and_topic = $current_word_text_and_topic;
+            $this->current_word_text_and_topic_index = $current_word_index_from_available_words;
             $this->user_words_available = $user_words_available;
         }
 
